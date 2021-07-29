@@ -254,7 +254,7 @@ func StartDataplaneDriver(configParams *config.Config,
 
 				IPIPEnabled:        configParams.IpInIpEnabled,
 				IPIPTunnelAddress:  configParams.IpInIpTunnelAddr,
-				VXLANTunnelAddress: configParams.IPv4VXLANTunnelAddr,
+				VXLANTunnelAddress: configParams.IPv6VXLANTunnelAddr,
 
 				AllowVXLANPacketsFromWorkloads: configParams.AllowVXLANPacketsFromWorkloads,
 				AllowIPIPPacketsFromWorkloads:  configParams.AllowIPIPPacketsFromWorkloads,
