@@ -254,7 +254,7 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 			}
 			l2routes = append(l2routes, routetable.L2Target{
 				VTEPMAC: mac,
-				GW:      ip.FromString(u.Ipv4Addr),
+				GW:      ip.FromString(u.Ipv6Addr),
 				IP:      ip.FromString(u.ParentDeviceIp),
 			})
 			allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIp)
@@ -304,7 +304,7 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 				vxlanRoute := routetable.Target{
 					Type: routetable.TargetTypeVXLAN,
 					CIDR: cidr,
-					GW:   ip.FromString(vtep.Ipv4Addr),
+					GW:   ip.FromString(vtep.Ipv6Addr),
 				}
 
 				vxlanRoutes = append(vxlanRoutes, vxlanRoute)
@@ -361,7 +361,7 @@ func (m *vxlanManager) KeepVXLANDeviceInSync(mtu int, xsumBroken bool, wait time
 			continue
 		} else {
 			if m.getNoEncapRouteTable() == nil {
-				noEncapRouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 4, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceAddress,
+				noEncapRouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 6, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceAddress,
 					m.noEncapProtocol, false)
 				m.setNoEncapRouteTable(noEncapRouteTable)
 			}
@@ -391,7 +391,7 @@ func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUp
 		return nil, err
 	}
 	for _, link := range links {
-		addrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V4)
+		addrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V6)
 		if err != nil {
 			return nil, err
 		}
@@ -480,7 +480,7 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 	}
 
 	// Make sure the IP address is configured.
-	if err := m.ensureV4AddressOnLink(localVTEP.Ipv4Addr, link); err != nil {
+	if err := m.ensureV6AddressOnLink(localVTEP.Ipv6Addr, link); err != nil {
 		return fmt.Errorf("failed to ensure address of interface: %s", err)
 	}
 
@@ -501,13 +501,13 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 
 // ensureV4AddressOnLink ensures that the provided IPv4 address is configured on the provided Link. If there are other addresses,
 // this function will remove them, ensuring that the desired IPv4 address is the _only_ address on the Link.
-func (m *vxlanManager) ensureV4AddressOnLink(ipStr string, link netlink.Link) error {
-	_, net, err := net.ParseCIDR(ipStr + "/32")
+func (m *vxlanManager) ensureV6AddressOnLink(ipStr string, link netlink.Link) error {
+	_, net, err := net.ParseCIDR(ipStr + "/64")
 	if err != nil {
 		return err
 	}
 	addr := netlink.Addr{IPNet: net}
-	existingAddrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V4)
+	existingAddrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V6)
 	if err != nil {
 		return err
 	}

@@ -135,10 +135,10 @@ func (eds *EtcdDatastoreInfra) RemoveNodeAddresses(felix *Felix) {
 func (eds *EtcdDatastoreInfra) AddNode(felix *Felix, idx int, needBGP bool) {
 	felixNode := api.NewNode()
 	felixNode.Name = felix.Hostname
-	felixNode.Spec.IPv4VXLANTunnelAddr = felix.ExpectedVXLANTunnelAddr
+	felixNode.Spec.IPv6VXLANTunnelAddr = felix.ExpectedVXLANTunnelAddr
 	if needBGP {
 		felixNode.Spec.BGP = &api.NodeBGPSpec{
-			IPv4Address:        fmt.Sprintf("%s/%s", felix.IP, felix.IPPrefix),
+			IPv6Address:        fmt.Sprintf("%s/%s", felix.IP, felix.IPPrefix),
 			IPv4IPIPTunnelAddr: felix.ExpectedIPIPTunnelAddr,
 		}
 	}

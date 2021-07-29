@@ -225,7 +225,7 @@ func (r *DefaultRuleRenderer) filterInputChain(ipVersion uint8) *Chain {
 		)
 	}
 
-	if ipVersion == 4 && r.VXLANEnabled {
+	if ipVersion == 6 && r.VXLANEnabled {
 		// VXLAN is enabled, filter incoming VXLAN packets that match our VXLAN port to ensure they
 		// come from a recognised host and are going to a local address on the host.
 		inputRules = append(inputRules,
@@ -679,7 +679,7 @@ func (r *DefaultRuleRenderer) filterOutputChain(ipVersion uint8) *Chain {
 		)
 	}
 
-	if ipVersion == 4 && r.VXLANEnabled {
+	if ipVersion == 6 && r.VXLANEnabled {
 		// When VXLAN is enabled, auto-allow VXLAN traffic to other Calico nodes.  Without this,
 		// it's too easy to make a host policy that blocks VXLAN traffic, resulting in very confusing
 		// connectivity problems.
@@ -776,7 +776,7 @@ func (r *DefaultRuleRenderer) StaticNATPostroutingChains(ipVersion uint8) []*Cha
 	if ipVersion == 4 && r.IPIPEnabled && len(r.IPIPTunnelAddress) > 0 {
 		tunnelIfaces = append(tunnelIfaces, "tunl0")
 	}
-	if ipVersion == 4 && r.VXLANEnabled && len(r.VXLANTunnelAddress) > 0 {
+	if ipVersion == 6 && r.VXLANEnabled && len(r.VXLANTunnelAddress) > 0 {
 		tunnelIfaces = append(tunnelIfaces, "vxlan.calico")
 	}
 	if ipVersion == 4 && r.WireguardEnabled && len(r.WireguardInterfaceName) > 0 {

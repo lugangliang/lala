@@ -609,7 +609,7 @@ func (kds *K8sDatastoreInfra) AddNode(felix *Felix, idx int, needBGP bool) {
 		nodeIn.Annotations["projectcalico.org/IPv4IPIPTunnelAddr"] = felix.ExpectedIPIPTunnelAddr
 	}
 	if felix.ExpectedVXLANTunnelAddr != "" {
-		nodeIn.Annotations["projectcalico.org/IPv4VXLANTunnelAddr"] = felix.ExpectedVXLANTunnelAddr
+		nodeIn.Annotations["projectcalico.org/IPv6VXLANTunnelAddr"] = felix.ExpectedVXLANTunnelAddr
 	}
 	if felix.ExpectedWireguardTunnelAddr != "" {
 		nodeIn.Annotations["projectcalico.org/IPv4WireguardInterfaceAddr"] = felix.ExpectedWireguardTunnelAddr

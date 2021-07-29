@@ -101,13 +101,13 @@ func (c *VXLANResolver) OnResourceUpdate(update api.Update) (_ bool) {
 		node := update.Value.(*apiv3.Node)
 		bgp := node.Spec.BGP
 		c.nodeNameToNode[nodeName] = node
-		ipv4, _, err := cnet.ParseCIDROrIP(bgp.IPv4Address)
+		ipv6, _, err := cnet.ParseCIDROrIP(bgp.IPv6Address)
 		if err != nil {
-			logCxt.WithError(err).Error("couldn't parse ipv4 address from node bgp info")
+			logCxt.WithError(err).Error("couldn't parse ipv6 address from node bgp info")
 			return
 		}
 
-		c.onNodeIPUpdate(nodeName, ipv4.String())
+		c.onNodeIPUpdate(nodeName, ipv6.String())
 	} else {
 		delete(c.nodeNameToNode, nodeName)
 		c.onRemoveNode(nodeName)
@@ -258,7 +258,7 @@ func (c *VXLANResolver) sendVTEPUpdate(node string) bool {
 		Node:           node,
 		ParentDeviceIp: parentDeviceIP,
 		Mac:            c.vtepMACForHost(node),
-		Ipv4Addr:       tunlAddr,
+		Ipv6Addr:       tunlAddr,
 	}
 	c.callbacks.OnVTEPUpdate(vtep)
 	return true

@@ -366,8 +366,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				nodeInfo.IPIPAddr = ip.FromString(node.Spec.BGP.IPv4IPIPTunnelAddr)
 			}
 
-			if node.Spec.IPv4VXLANTunnelAddr != "" {
-				nodeInfo.VXLANAddr = ip.FromString(node.Spec.IPv4VXLANTunnelAddr)
+			if node.Spec.IPv6VXLANTunnelAddr != "" {
+				nodeInfo.VXLANAddr = ip.FromString(node.Spec.IPv6VXLANTunnelAddr)
 			}
 
 			for _, a := range node.Spec.Addresses {
