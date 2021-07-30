@@ -431,23 +431,23 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 	dp.iptablesFilterTables = append(dp.iptablesFilterTables, filterTableV4)
 	dp.ipSets = append(dp.ipSets, ipSetsV4)
 
-	if config.RulesConfig.VXLANEnabled {
-		routeTableVXLAN := routetable.New([]string{"^vxlan.calico$"}, 4, true, config.NetlinkTimeout,
-			config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
-			dp.loopSummarizer)
-
-		vxlanManager := newVXLANManager(
-			ipSetsV4,
-			routeTableVXLAN,
-			"vxlan.calico",
-			config,
-			dp.loopSummarizer,
-		)
-		go vxlanManager.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
-		dp.RegisterManager(vxlanManager)
-	} else {
-		cleanUpVXLANDevice()
-	}
+	//if config.RulesConfig.VXLANEnabled {
+	//	routeTableVXLAN := routetable.New([]string{"^vxlan.calico$"}, 4, true, config.NetlinkTimeout,
+	//		config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
+	//		dp.loopSummarizer)
+	//
+	//	vxlanManager := newVXLANManager(
+	//		ipSetsV4,
+	//		routeTableVXLAN,
+	//		"vxlan.calico",
+	//		config,
+	//		dp.loopSummarizer,
+	//	)
+	//	go vxlanManager.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
+	//	dp.RegisterManager(vxlanManager)
+	//} else {
+	//	cleanUpVXLANDevice()
+	//}
 
 	dp.endpointStatusCombiner = newEndpointStatusCombiner(dp.fromDataplane, config.IPv6Enabled)
 
@@ -795,6 +795,25 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 			interfaceRegexes, 6, false, config.NetlinkTimeout,
 			config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, config.RemoveExternalRoutes, 0,
 			dp.loopSummarizer)
+
+		if config.RulesConfig.VXLANEnabled {
+			routeTableVXLAN := routetable.New([]string{"^vxlan.calico$"}, 6, true, config.NetlinkTimeout,
+				config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
+				dp.loopSummarizer)
+
+			vxlanManager := newVXLANManager(
+				ipSetsV6,
+				routeTableVXLAN,
+				"vxlan.calico",
+				config,
+				dp.loopSummarizer,
+			)
+			go vxlanManager.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
+			dp.RegisterManager(vxlanManager)
+		} else {
+			cleanUpVXLANDevice()
+		}
+
 
 		if !config.BPFEnabled {
 			dp.RegisterManager(newIPSetsManager(ipSetsV6, config.MaxIPSetSize, callbacks))
