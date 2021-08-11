@@ -502,7 +502,7 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 // ensureV4AddressOnLink ensures that the provided IPv4 address is configured on the provided Link. If there are other addresses,
 // this function will remove them, ensuring that the desired IPv4 address is the _only_ address on the Link.
 func (m *vxlanManager) ensureV6AddressOnLink(ipStr string, link netlink.Link) error {
-	_, net, err := net.ParseCIDR(ipStr + "/64")
+	_, net, err := net.ParseCIDR(ipStr + "/128")
 	if err != nil {
 		return err
 	}

@@ -3397,7 +3397,7 @@ func (m *VXLANTunnelEndpointUpdate) GetMac() string {
 	return ""
 }
 
-func (m *VXLANTunnelEndpointUpdate) GetIpv4Addr() string {
+func (m *VXLANTunnelEndpointUpdate) GetIpv6Addr() string {
 	if m != nil {
 		return m.Ipv6Addr
 	}
