@@ -125,14 +125,14 @@ var _ = Describe("VXLANManager", func() {
 		manager.OnUpdate(&proto.VXLANTunnelEndpointUpdate{
 			Node:           "node1",
 			Mac:            "00:0a:74:9d:68:16",
-			Ipv4Addr:       "10.0.0.0",
+			Ipv6Addr:       "10.0.0.0",
 			ParentDeviceIp: "172.0.0.2",
 		})
 
 		manager.OnUpdate(&proto.VXLANTunnelEndpointUpdate{
 			Node:           "node2",
 			Mac:            "00:0a:95:9d:68:16",
-			Ipv4Addr:       "10.0.80.0/32",
+			Ipv6Addr:       "10.0.80.0/32",
 			ParentDeviceIp: "172.0.12.1",
 		})
 
@@ -182,7 +182,7 @@ var _ = Describe("VXLANManager", func() {
 		manager.OnUpdate(&proto.VXLANTunnelEndpointUpdate{
 			Node:           "node2",
 			Mac:            "00:0a:95:9d:68:16",
-			Ipv4Addr:       "10.0.80.0/32",
+			Ipv6Addr:       "10.0.80.0/32",
 			ParentDeviceIp: "172.0.12.1",
 		})
 
@@ -204,7 +204,7 @@ var _ = Describe("VXLANManager", func() {
 		manager.OnUpdate(&proto.VXLANTunnelEndpointUpdate{
 			Node:           "node1",
 			Mac:            "00:0a:74:9d:68:16",
-			Ipv4Addr:       "10.0.0.0",
+			Ipv6Addr:       "10.0.0.0",
 			ParentDeviceIp: "172.0.0.2",
 		})
 
