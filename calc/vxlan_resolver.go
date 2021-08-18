@@ -169,11 +169,11 @@ func (c *VXLANResolver) onRemoveNode(nodeName string) {
 // VTEPs associated with the node.
 func (c *VXLANResolver) OnHostConfigUpdate(update api.Update) (_ bool) {
 	switch update.Key.(model.HostConfigKey).Name {
-	case "IPv4VXLANTunnelAddr":
+	case "IPv6VXLANTunnelAddr":
 		nodeName := update.Key.(model.HostConfigKey).Hostname
 		vtepSent := c.vtepSent(nodeName)
 		logCxt := logrus.WithField("node", nodeName).WithField("value", update.Value)
-		logCxt.Debug("IPv4VXLANTunnelAddr update")
+		logCxt.Debug("IPv6VXLANTunnelAddr update")
 		if update.Value != nil {
 			// Update for a VXLAN tunnel address.
 			newIP := update.Value.(string)
