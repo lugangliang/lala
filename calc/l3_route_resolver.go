@@ -70,8 +70,8 @@ type L3RouteResolver struct {
 }
 
 type l3rrNodeInfo struct {
-	Addr ip.V4Addr
-	CIDR ip.V4CIDR
+	Addr ip.V6Addr
+	CIDR ip.V6CIDR
 
 	// Tunnel IP addresses
 	IPIPAddr      ip.Addr
@@ -114,25 +114,27 @@ func (i l3rrNodeInfo) Equal(b l3rrNodeInfo) bool {
 	return false
 }
 
-func (i l3rrNodeInfo) AddrAsCIDR() ip.V4CIDR {
-	return i.Addr.AsCIDR().(ip.V4CIDR)
+func (i l3rrNodeInfo) AddrAsCIDR() ip.CIDR {
+	return i.Addr.AsCIDR().(ip.CIDR)
 }
 
-func (i l3rrNodeInfo) AddresesV4AsCIDRs() []ip.V4CIDR {
-	addrs4 := make(map[ip.V4Addr]struct{})
+func (i l3rrNodeInfo) AddresesV6AsCIDRs() []ip.V6CIDR {
+	addrs := make(map[ip.Addr]struct{})
 
-	addrs4[i.Addr] = struct{}{}
+	addrs[i.Addr] = struct{}{}
 
 	for _, a := range i.Addresses {
 		if a.Version() == 4 {
-			addrs4[a.(ip.V4Addr)] = struct{}{}
+			addrs[a.(ip.V4Addr)] = struct{}{}
+		} else {
+			addrs[a.(ip.V6Addr)] = struct{}{}
 		}
 	}
 
-	cidrs := make([]ip.V4CIDR, len(addrs4))
+	cidrs := make([]ip.V6CIDR, len(addrs))
 	idx := 0
-	for a := range addrs4 {
-		cidrs[idx] = a.AsCIDR().(ip.V4CIDR)
+	for a := range addrs {
+		cidrs[idx] = a.AsCIDR().(ip.V6CIDR)
 		idx++
 	}
 
@@ -193,7 +195,7 @@ func (c *L3RouteResolver) OnWorkloadUpdate(update api.Update) (_ bool) {
 	var newCIDRs []cnet.IPNet
 	if update.Value != nil {
 		newWorkload := update.Value.(*model.WorkloadEndpoint)
-		newCIDRs = newWorkload.IPv4Nets
+		newCIDRs = newWorkload.IPv6Nets
 		logrus.WithField("workload", key).WithField("newCIDRs", newCIDRs).Debug("Workload update")
 	}
 
@@ -205,14 +207,14 @@ func (c *L3RouteResolver) OnWorkloadUpdate(update api.Update) (_ bool) {
 
 	// Incref the new CIDRs.
 	for _, newCIDR := range newCIDRs {
-		cidr := ip.CIDRFromCalicoNet(newCIDR).(ip.V4CIDR)
+		cidr := ip.CIDRFromCalicoNet(newCIDR).(ip.V6CIDR)
 		c.trie.AddRef(cidr, key.Hostname, RefTypeWEP)
 		c.nodeRoutes.Add(nodenameRoute{key.Hostname, cidr})
 	}
 
 	// Decref the old.
 	for _, oldCIDR := range oldCIDRs {
-		cidr := ip.CIDRFromCalicoNet(oldCIDR).(ip.V4CIDR)
+		cidr := ip.CIDRFromCalicoNet(oldCIDR).(ip.V6CIDR)
 		c.trie.RemoveRef(cidr, key.Hostname, RefTypeWEP)
 		c.nodeRoutes.Remove(nodenameRoute{key.Hostname, cidr})
 	}
@@ -241,7 +243,7 @@ func (c *L3RouteResolver) OnBlockUpdate(update api.Update) (_ bool) {
 		// We don't allow multiple blocks with the same CIDR, so no need to check
 		// for duplicates here. Look at the routes contributed by this block and determine if we
 		// need to send any updates.
-		newRoutes := c.v4RoutesFromBlock(update.Value.(*model.AllocationBlock))
+		newRoutes := c.v6RoutesFromBlock(update.Value.(*model.AllocationBlock))
 		logrus.WithField("numRoutes", len(newRoutes)).Debug("IPAM block update")
 		cachedRoutes, ok := c.blockToRoutes[key]
 		if !ok {
@@ -332,27 +334,27 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 	var nodeInfo *l3rrNodeInfo
 	if update.Value != nil {
 		node := update.Value.(*apiv3.Node)
-		if node.Spec.BGP != nil && node.Spec.BGP.IPv4Address != "" {
+		if node.Spec.BGP != nil && node.Spec.BGP.IPv6Address != "" {
 			bgp := node.Spec.BGP
 			// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
 			// throw away one or the other.
-			ipv4, caliNodeCIDR, err := cnet.ParseCIDROrIP(bgp.IPv4Address)
+			ipv6, caliNodeCIDR, err := cnet.ParseCIDROrIP(bgp.IPv6Address)
 			if err != nil {
 				logrus.WithError(err).Panic("Failed to parse already-validated IP address")
 			}
 			nodeInfo = &l3rrNodeInfo{
-				Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
-				CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
+				Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
+				CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
 			}
 		} else {
-			ipv4, caliNodeCIDR := cresources.FindNodeAddress(node, apiv3.InternalIP)
-			if ipv4 == nil {
-				ipv4, caliNodeCIDR = cresources.FindNodeAddress(node, apiv3.ExternalIP)
+			ipv6, caliNodeCIDR := cresources.FindNodeAddress(node, apiv3.InternalIP)
+			if ipv6 == nil {
+				ipv6, caliNodeCIDR = cresources.FindNodeAddress(node, apiv3.ExternalIP)
 			}
-			if ipv4 != nil && caliNodeCIDR != nil {
+			if ipv6 != nil && caliNodeCIDR != nil {
 				nodeInfo = &l3rrNodeInfo{
-					Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
-					CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
+					Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
+					CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
 				}
 			}
 		}
@@ -397,11 +399,11 @@ func (c *L3RouteResolver) OnHostIPUpdate(update api.Update) (_ bool) {
 	var newNodeInfo *l3rrNodeInfo
 	if update.Value != nil {
 		newCaliIP := update.Value.(*cnet.IP)
-		v4Addr, ok := ip.FromCalicoIP(*newCaliIP).(ip.V4Addr)
+		v6Addr, ok := ip.FromCalicoIP(*newCaliIP).(ip.V6Addr)
 		if ok { // Defensive; we only expect an IPv4.
 			newNodeInfo = &l3rrNodeInfo{
-				Addr: v4Addr,
-				CIDR: v4Addr.AsCIDR().(ip.V4CIDR), // Don't know the CIDR so use the /32.
+				Addr: v6Addr,
+				CIDR: v6Addr.AsCIDR().(ip.V6CIDR), // Don't know the CIDR so use the /32.
 			}
 		}
 	}
@@ -422,7 +424,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 
 	if nodeName == c.myNodeName {
 		// Check if our CIDR has changed and if so recalculate the "same subnet" tracking.
-		var myNewCIDR ip.V4CIDR
+		var myNewCIDR ip.V6CIDR
 		var myNewCIDRKnown bool
 		if newNodeInfo != nil {
 			myNewCIDR = newNodeInfo.CIDR
@@ -438,9 +440,9 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 				if !known {
 					return // Don't know other node's CIDR so ignore for now.
 				}
-				otherNodesIPv4 := otherNodeInfo.Addr
-				wasSameSubnet := nodeExisted && oldNodeInfo.CIDR.ContainsV4(otherNodesIPv4)
-				nowSameSubnet := myNewCIDRKnown && myNewCIDR.ContainsV4(otherNodesIPv4)
+				otherNodesIPv6 := otherNodeInfo.Addr
+				wasSameSubnet := nodeExisted && oldNodeInfo.CIDR.ContainsV6(otherNodesIPv6)
+				nowSameSubnet := myNewCIDRKnown && myNewCIDR.ContainsV6(otherNodesIPv6)
 				if wasSameSubnet != nowSameSubnet {
 					logrus.WithField("route", r).Debug("Update to our subnet invalidated route")
 					c.trie.MarkCIDRDirty(r.dst)
@@ -452,37 +454,37 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 	// Process the tunnel addresses. These are reference counted, so handle adds followed by deletes to minimize churn.
 	if newNodeInfo != nil {
 		if newNodeInfo.IPIPAddr != nil {
-			c.trie.AddRef(newNodeInfo.IPIPAddr.AsCIDR().(ip.V4CIDR), nodeName, RefTypeIPIP)
+			c.trie.AddRef(newNodeInfo.IPIPAddr.AsCIDR().(ip.V6CIDR), nodeName, RefTypeIPIP)
 		}
 		if newNodeInfo.VXLANAddr != nil {
-			c.trie.AddRef(newNodeInfo.VXLANAddr.AsCIDR().(ip.V4CIDR), nodeName, RefTypeVXLAN)
+			c.trie.AddRef(newNodeInfo.VXLANAddr.AsCIDR().(ip.V6CIDR), nodeName, RefTypeVXLAN)
 		}
 		if newNodeInfo.WireguardAddr != nil {
-			c.trie.AddRef(newNodeInfo.WireguardAddr.AsCIDR().(ip.V4CIDR), nodeName, RefTypeWireguard)
+			c.trie.AddRef(newNodeInfo.WireguardAddr.AsCIDR().(ip.V6CIDR), nodeName, RefTypeWireguard)
 		}
 	}
 	if nodeExisted {
 		if oldNodeInfo.IPIPAddr != nil {
-			c.trie.RemoveRef(oldNodeInfo.IPIPAddr.AsCIDR().(ip.V4CIDR), nodeName, RefTypeIPIP)
+			c.trie.RemoveRef(oldNodeInfo.IPIPAddr.AsCIDR().(ip.V6CIDR), nodeName, RefTypeIPIP)
 		}
 		if oldNodeInfo.VXLANAddr != nil {
-			c.trie.RemoveRef(oldNodeInfo.VXLANAddr.AsCIDR().(ip.V4CIDR), nodeName, RefTypeVXLAN)
+			c.trie.RemoveRef(oldNodeInfo.VXLANAddr.AsCIDR().(ip.V6CIDR), nodeName, RefTypeVXLAN)
 		}
 		if oldNodeInfo.WireguardAddr != nil {
-			c.trie.RemoveRef(oldNodeInfo.WireguardAddr.AsCIDR().(ip.V4CIDR), nodeName, RefTypeWireguard)
+			c.trie.RemoveRef(oldNodeInfo.WireguardAddr.AsCIDR().(ip.V6CIDR), nodeName, RefTypeWireguard)
 		}
 	}
 
 	// Process the node CIDR and cache the node info.
 	if nodeExisted {
 		delete(c.nodeNameToNodeInfo, nodeName)
-		for _, a := range oldNodeInfo.AddresesV4AsCIDRs() {
+		for _, a := range oldNodeInfo.AddresesV6AsCIDRs() {
 			c.trie.RemoveHost(a, nodeName)
 		}
 	}
 	if newNodeInfo != nil {
 		c.nodeNameToNodeInfo[nodeName] = *newNodeInfo
-		for _, a := range newNodeInfo.AddresesV4AsCIDRs() {
+		for _, a := range newNodeInfo.AddresesV6AsCIDRs() {
 			c.trie.AddHost(a, nodeName)
 		}
 	}
@@ -497,7 +499,7 @@ func (c *L3RouteResolver) markAllNodeRoutesDirty(nodeName string) {
 }
 
 func (c *L3RouteResolver) visitAllRoutes(v func(route nodenameRoute)) {
-	c.trie.t.Visit(func(cidr ip.V4CIDR, data interface{}) bool {
+	c.trie.t.Visit(func(cidr ip.V6CIDR, data interface{}) bool {
 		// Construct a nodenameRoute to pass to the visiting function.
 		ri := c.trie.t.Get(cidr).(RouteInfo)
 		nnr := nodenameRoute{dst: cidr}
@@ -526,17 +528,17 @@ func (c *L3RouteResolver) OnPoolUpdate(update api.Update) (_ bool) {
 	poolKey := k.String()
 	oldPool, oldPoolExists := c.allPools[poolKey]
 	oldPoolType := proto.IPPoolType_NONE
-	var poolCIDR ip.V4CIDR
+	var poolCIDR ip.V6CIDR
 	if oldPoolExists {
 		// Need explicit oldPoolExists check so that we don't pass a zero-struct to poolTypeForPool.
 		oldPoolType = c.poolTypeForPool(&oldPool)
-		poolCIDR = ip.CIDRFromCalicoNet(oldPool.CIDR).(ip.V4CIDR)
+		poolCIDR = ip.CIDRFromCalicoNet(oldPool.CIDR).(ip.V6CIDR)
 	}
 	var newPool *model.IPPool
 	if update.Value != nil {
 		newPool = update.Value.(*model.IPPool)
-		if len(newPool.CIDR.IP.To4()) == 0 {
-			logrus.Debug("Ignoring IPv6 pool")
+		if len(newPool.CIDR.IP.To16()) == 0 {
+			logrus.Debug("Ignoring IPv4 pool")
 			newPool = nil
 		}
 	}
@@ -545,7 +547,7 @@ func (c *L3RouteResolver) OnPoolUpdate(update api.Update) (_ bool) {
 	if newPool != nil && newPoolType != proto.IPPoolType_NONE {
 		logCxt.Info("Pool is active")
 		c.allPools[poolKey] = *newPool
-		poolCIDR = ip.CIDRFromCalicoNet(newPool.CIDR).(ip.V4CIDR)
+		poolCIDR = ip.CIDRFromCalicoNet(newPool.CIDR).(ip.V6CIDR)
 		crossSubnet := newPool.IPIPMode == encap.CrossSubnet || newPool.VXLANMode == encap.CrossSubnet
 		c.trie.UpdatePool(poolCIDR, newPoolType, newPool.Masquerade, crossSubnet)
 	} else {
@@ -571,9 +573,9 @@ func (c *L3RouteResolver) poolTypeForPool(pool *model.IPPool) proto.IPPoolType {
 
 // v4RoutesFromBlock returns a list of routes which should exist based on the provided
 // allocation block.
-func (c *L3RouteResolver) v4RoutesFromBlock(b *model.AllocationBlock) map[string]nodenameRoute {
-	if len(b.CIDR.IP.To4()) == 0 {
-		logrus.Debug("Ignoring IPv6 block")
+func (c *L3RouteResolver) v6RoutesFromBlock(b *model.AllocationBlock) map[string]nodenameRoute {
+	if len(b.CIDR.IP.To16()) == 0 {
+		logrus.Debug("Ignoring IPv4 block")
 		return nil
 	}
 
@@ -585,7 +587,7 @@ func (c *L3RouteResolver) v4RoutesFromBlock(b *model.AllocationBlock) map[string
 			continue
 		}
 		r := nodenameRoute{
-			dst:      ip.CIDRFromNetIP(alloc.Addr.IP).(ip.V4CIDR),
+			dst:      ip.CIDRFromNetIP(alloc.Addr.IP).(ip.V6CIDR),
 			nodeName: alloc.Host,
 		}
 		routes[r.Key()] = r
@@ -595,7 +597,7 @@ func (c *L3RouteResolver) v4RoutesFromBlock(b *model.AllocationBlock) map[string
 	if host != "" {
 		logrus.WithField("host", host).Debug("Block has a host, including block-via-host route")
 		r := nodenameRoute{
-			dst:      ip.CIDRFromCalicoNet(b.CIDR).(ip.V4CIDR),
+			dst:      ip.CIDRFromCalicoNet(b.CIDR).(ip.V6CIDR),
 			nodeName: host,
 		}
 		routes[r.Key()] = r
@@ -607,11 +609,11 @@ func (c *L3RouteResolver) v4RoutesFromBlock(b *model.AllocationBlock) map[string
 // flush() iterates over the CIDRs that are marked dirty in the trie and sends any route updates
 // that it finds.
 func (c *L3RouteResolver) flush() {
-	var buf []ip.V4TrieEntry
+	var buf []ip.V6TrieEntry
 	c.trie.dirtyCIDRs.Iter(func(item interface{}) error {
 		logCxt := logrus.WithField("cidr", item)
 		logCxt.Debug("Flushing dirty route")
-		cidr := item.(ip.V4CIDR)
+		cidr := item.(ip.V6CIDR)
 
 		// We know the CIDR may be dirty, look up the path through the trie to the CIDR.  This will
 		// give us the information about the enclosing CIDRs.  For example, if we have:
@@ -752,13 +754,13 @@ func (c *L3RouteResolver) nodeInOurSubnet(name string) bool {
 		return false
 	}
 
-	return localNodeInfo.CIDR.ContainsV4(nodeInfo.Addr)
+	return localNodeInfo.CIDR.ContainsV6(nodeInfo.Addr)
 }
 
 // nodenameRoute is the L3RouteResolver's internal representation of a route.
 type nodenameRoute struct {
 	nodeName string
-	dst      ip.V4CIDR
+	dst      ip.V6CIDR
 }
 
 func (r nodenameRoute) Key() string {
@@ -794,18 +796,18 @@ func (r nodenameRoute) String() string {
 // The RouteTrie maintains a set of dirty CIDRs.  When an IPAM pool is updated, all the CIDRs under it are
 // marked dirty.
 type RouteTrie struct {
-	t          *ip.V4Trie
+	t          *ip.V6Trie
 	dirtyCIDRs set.Set
 }
 
 func NewRouteTrie() *RouteTrie {
 	return &RouteTrie{
-		t:          &ip.V4Trie{},
+		t:          &ip.V6Trie{},
 		dirtyCIDRs: set.New(),
 	}
 }
 
-func (r *RouteTrie) UpdatePool(cidr ip.V4CIDR, poolType proto.IPPoolType, natOutgoing bool, crossSubnet bool) {
+func (r *RouteTrie) UpdatePool(cidr ip.V6CIDR, poolType proto.IPPoolType, natOutgoing bool, crossSubnet bool) {
 	logrus.WithFields(logrus.Fields{
 		"cidr":        cidr,
 		"poolType":    poolType,
@@ -823,35 +825,35 @@ func (r *RouteTrie) UpdatePool(cidr ip.V4CIDR, poolType proto.IPPoolType, natOut
 	r.markChildrenDirty(cidr)
 }
 
-func (r *RouteTrie) markChildrenDirty(cidr ip.V4CIDR) {
+func (r *RouteTrie) markChildrenDirty(cidr ip.V6CIDR) {
 	// TODO: avoid full scan to mark children dirty
-	r.t.Visit(func(c ip.V4CIDR, data interface{}) bool {
-		if cidr.ContainsV4(c.Addr().(ip.V4Addr)) {
+	r.t.Visit(func(c ip.V6CIDR, data interface{}) bool {
+		if cidr.ContainsV6(c.Addr().(ip.V6Addr)) {
 			r.MarkCIDRDirty(c)
 		}
 		return true
 	})
 }
 
-func (r *RouteTrie) MarkCIDRDirty(cidr ip.V4CIDR) {
+func (r *RouteTrie) MarkCIDRDirty(cidr ip.CIDR) {
 	r.dirtyCIDRs.Add(cidr)
 }
 
-func (r *RouteTrie) RemovePool(cidr ip.V4CIDR) {
+func (r *RouteTrie) RemovePool(cidr ip.V6CIDR) {
 	r.UpdatePool(cidr, proto.IPPoolType_NONE, false, false)
 }
 
-func (r *RouteTrie) UpdateBlockRoute(cidr ip.V4CIDR, nodeName string) {
+func (r *RouteTrie) UpdateBlockRoute(cidr ip.V6CIDR, nodeName string) {
 	r.updateCIDR(cidr, func(ri *RouteInfo) {
 		ri.Block.NodeName = nodeName
 	})
 }
 
-func (r *RouteTrie) RemoveBlockRoute(cidr ip.V4CIDR) {
+func (r *RouteTrie) RemoveBlockRoute(cidr ip.V6CIDR) {
 	r.UpdateBlockRoute(cidr, "")
 }
 
-func (r *RouteTrie) AddHost(cidr ip.V4CIDR, nodeName string) {
+func (r *RouteTrie) AddHost(cidr ip.V6CIDR, nodeName string) {
 	r.updateCIDR(cidr, func(ri *RouteInfo) {
 		ri.Host.NodeNames = append(ri.Host.NodeNames, nodeName)
 		if len(ri.Host.NodeNames) > 1 {
@@ -865,7 +867,7 @@ func (r *RouteTrie) AddHost(cidr ip.V4CIDR, nodeName string) {
 	})
 }
 
-func (r *RouteTrie) RemoveHost(cidr ip.V4CIDR, nodeName string) {
+func (r *RouteTrie) RemoveHost(cidr ip.V6CIDR, nodeName string) {
 	r.updateCIDR(cidr, func(ri *RouteInfo) {
 		var ns []string
 		for _, n := range ri.Host.NodeNames {
@@ -878,7 +880,7 @@ func (r *RouteTrie) RemoveHost(cidr ip.V4CIDR, nodeName string) {
 	})
 }
 
-func (r *RouteTrie) AddRef(cidr ip.V4CIDR, nodename string, rt RefType) {
+func (r *RouteTrie) AddRef(cidr ip.V6CIDR, nodename string, rt RefType) {
 	r.updateCIDR(cidr, func(ri *RouteInfo) {
 		// Find the ref in the list for this nodename,
 		// if it exists. If it doesn't, we'll add it below.
@@ -906,7 +908,7 @@ func (r *RouteTrie) AddRef(cidr ip.V4CIDR, nodename string, rt RefType) {
 	})
 }
 
-func (r *RouteTrie) RemoveRef(cidr ip.V4CIDR, nodename string, rt RefType) {
+func (r *RouteTrie) RemoveRef(cidr ip.V6CIDR, nodename string, rt RefType) {
 	r.updateCIDR(cidr, func(ri *RouteInfo) {
 		for i := range ri.Refs {
 			if ri.Refs[i].NodeName == nodename && ri.Refs[i].RefType == rt {
@@ -930,13 +932,13 @@ func (r *RouteTrie) RemoveRef(cidr ip.V4CIDR, nodename string, rt RefType) {
 	})
 }
 
-func (r *RouteTrie) SetRouteSent(cidr ip.V4CIDR, sent bool) {
+func (r *RouteTrie) SetRouteSent(cidr ip.V6CIDR, sent bool) {
 	r.updateCIDR(cidr, func(ri *RouteInfo) {
 		ri.WasSent = sent
 	})
 }
 
-func (r RouteTrie) updateCIDR(cidr ip.V4CIDR, updateFn func(info *RouteInfo)) bool {
+func (r RouteTrie) updateCIDR(cidr ip.V6CIDR, updateFn func(info *RouteInfo)) bool {
 	// Get the RouteInfo for the given CIDR and take a copy so we can compare.
 	ri := r.Get(cidr)
 	riCopy := ri.Copy()
@@ -964,7 +966,7 @@ func (r RouteTrie) updateCIDR(cidr ip.V4CIDR, updateFn func(info *RouteInfo)) bo
 	return true
 }
 
-func (r RouteTrie) Get(cidr ip.V4CIDR) RouteInfo {
+func (r RouteTrie) Get(cidr ip.V6CIDR) RouteInfo {
 	ri := r.t.Get(cidr)
 	if ri == nil {
 		return RouteInfo{}
@@ -1056,18 +1058,18 @@ func (r RouteInfo) Equals(other RouteInfo) bool {
 // It uses a reference counter so that we can properly handle intermediate cases where
 // the same CIDR might appear twice.
 type nodeRoutes struct {
-	cache map[string]map[ip.V4CIDR]int
+	cache map[string]map[ip.V6CIDR]int
 }
 
 func newNodeRoutes() nodeRoutes {
 	return nodeRoutes{
-		cache: map[string]map[ip.V4CIDR]int{},
+		cache: map[string]map[ip.V6CIDR]int{},
 	}
 }
 
 func (nr *nodeRoutes) Add(r nodenameRoute) {
 	if _, ok := nr.cache[r.nodeName]; !ok {
-		nr.cache[r.nodeName] = map[ip.V4CIDR]int{r.dst: 0}
+		nr.cache[r.nodeName] = map[ip.V6CIDR]int{r.dst: 0}
 	}
 	nr.cache[r.nodeName][r.dst]++
 }

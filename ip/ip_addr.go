@@ -101,6 +101,14 @@ func (a V6Addr) AsCIDR() CIDR {
 	}
 }
 
+func (a V6Addr) AsUint32() uint32 {
+	return binary.BigEndian.Uint32(a[:])
+}
+
+func (a V6Addr) NthBit(n uint) int {
+	return int(a.AsUint32() >> (128 - n) & 1)
+}
+
 func (a V6Addr) String() string {
 	return a.AsNetIP().String()
 }
@@ -175,6 +183,14 @@ func (c V6CIDR) ToIPNet() net.IPNet {
 
 func (c V6CIDR) String() string {
 	return fmt.Sprintf("%s/%v", c.addr.String(), c.prefix)
+}
+
+func (c V6CIDR) ContainsV6(addr V6Addr) bool {
+	a32 := c.addr.AsUint32()
+	b32 := addr.AsUint32()
+	xored := a32 ^ b32 // Has a zero bit wherever the two values are the same.
+	commonPrefixLen := uint8(bits.LeadingZeros32(xored))
+	return commonPrefixLen >= c.prefix
 }
 
 func FromString(s string) Addr {

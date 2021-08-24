@@ -30,6 +30,16 @@ type V4Node struct {
 	data     interface{}
 }
 
+type V6Trie struct {
+	root *V6Node
+}
+
+type V6Node struct {
+	cidr     V6CIDR
+	children [2]*V6Node
+	data     interface{}
+}
+
 func (t *V4Trie) Delete(cidr V4CIDR) {
 	if t.root == nil {
 		// Trie is empty.
@@ -40,6 +50,18 @@ func (t *V4Trie) Delete(cidr V4CIDR) {
 		return
 	}
 	t.root = deleteInternal(t.root, cidr)
+}
+
+func (t *V6Trie) Delete(cidr V6CIDR) {
+	if t.root == nil {
+		// Trie is empty.
+		return
+	}
+	if V6CommonPrefix(t.root.cidr, cidr) != t.root.cidr {
+		// Trie does not contain prefix.
+		return
+	}
+	t.root = deleteInternalV6(t.root, cidr)
 }
 
 func deleteInternal(n *V4Node, cidr V4CIDR) *V4Node {
@@ -72,6 +94,47 @@ func deleteInternal(n *V4Node, cidr V4CIDR) *V4Node {
 		return n
 	}
 	newChild := deleteInternal(oldChild, cidr)
+	n.children[childIdx] = newChild
+	if newChild == nil {
+		// One of our children has been deleted completely, check if this node is an intermediate node
+		// that needs to be cleaned up.
+		if n.data == nil {
+			return n.children[1-childIdx]
+		}
+	}
+	return n
+}
+
+func deleteInternalV6(n *V6Node, cidr V6CIDR) *V6Node {
+	if !n.cidr.ContainsV6(cidr.addr) {
+		// Not in trie.
+		return n
+	}
+
+	if cidr == n.cidr {
+		// Found the node.  If either child is nil then this was just an intermediate node
+		// and it no longer has any data in it so we replace it by its remaining child.
+		if n.children[0] == nil {
+			// 0th child is nil, return the other child (or nil if both children were nil)
+			return n.children[1]
+		} else if n.children[1] == nil {
+			// oth child non-nil but 1st child is nil, return oth child.
+			return n.children[0]
+		} else {
+			// Intermediate node but it has two children so it is still required.
+			n.data = nil
+			return n
+		}
+	}
+
+	// If we get here, then this node is a parent of the CIDR we're looking for.
+	// Figure out which child to recurse on.
+	childIdx := cidr.addr.NthBit(uint(n.cidr.prefix + 1))
+	oldChild := n.children[childIdx]
+	if oldChild == nil {
+		return n
+	}
+	newChild := deleteInternalV6(oldChild, cidr)
 	n.children[childIdx] = newChild
 	if newChild == nil {
 		// One of our children has been deleted completely, check if this node is an intermediate node
@@ -354,6 +417,278 @@ func (t *V4Trie) Update(cidr V4CIDR, value interface{}) {
 	}
 }
 
+//TODO V6
+type V6TrieEntry struct {
+	CIDR V6CIDR
+	Data interface{}
+}
+
+func (t *V6Trie) Get(cidr V6CIDR) interface{} {
+	return t.root.get(cidr)
+}
+
+// LookupPath looks up the given CIDR in the trie.  It returns a slice containing a V4TrieEntry for each
+// CIDR in the trie that encloses the given CIDR.  If buffer is non-nil, then it is used to store the entries;
+// if it is too short append() is used to extend it and the updated slice is returned.
+//
+// If the CIDR is not in the trie then an empty slice is returned.
+func (t *V6Trie) LookupPath(buffer []V6TrieEntry, cidr V6CIDR) []V6TrieEntry {
+	return t.root.lookupPath(buffer[:0], cidr)
+}
+
+// LPM does a longest prefix match on the trie
+func (t *V6Trie) LPM(cidr V6CIDR) (V6CIDR, interface{}) {
+	n := t.root
+	var match *V6Node
+
+	for {
+		if n == nil {
+			break
+		}
+
+		if !n.cidr.ContainsV6(cidr.addr) {
+			break
+		}
+
+		if n.data != nil {
+			match = n
+		}
+
+		if cidr == n.cidr {
+			break
+		}
+
+		// If we get here, then this node is a parent of the CIDR we're looking for.
+		// Figure out which child to recurse on.
+		childIdx := cidr.addr.NthBit(uint(n.cidr.prefix + 1))
+		n = n.children[childIdx]
+	}
+
+	if match == nil || match.data == nil {
+		return V6CIDR{}, nil
+	}
+	return match.cidr, match.data
+}
+
+func (n *V6Node) lookupPath(buffer []V6TrieEntry, cidr V6CIDR) []V6TrieEntry {
+	if n == nil {
+		return buffer[:0]
+	}
+
+	if !n.cidr.ContainsV6(cidr.addr) {
+		// Not in trie.
+		return nil
+	}
+
+	if n.data != nil {
+		buffer = append(buffer, V6TrieEntry{CIDR: n.cidr, Data: n.data})
+	}
+
+	if cidr == n.cidr {
+		if n.data == nil {
+			// CIDR is an intermediate node with no data so CIDR isn't actually in the trie.
+			return nil
+		}
+		return buffer
+	}
+
+	// If we get here, then this node is a parent of the CIDR we're looking for.
+	// Figure out which child to recurse on.
+	childIdx := cidr.addr.NthBit(uint(n.cidr.prefix + 1))
+	child := n.children[childIdx]
+	return child.lookupPath(buffer, cidr)
+}
+
+func (n *V6Node) get(cidr V6CIDR) interface{} {
+	if n == nil {
+		return nil
+	}
+
+	if !n.cidr.ContainsV6(cidr.addr) {
+		// Not in trie.
+		return nil
+	}
+
+	if cidr == n.cidr {
+		if n.data == nil {
+			// CIDR is an intermediate node with no data so CIDR isn't actually in the trie.
+			return nil
+		}
+		return n.data
+	}
+
+	// If we get here, then this node is a parent of the CIDR we're looking for.
+	// Figure out which child to recurse on.
+	childIdx := cidr.addr.NthBit(uint(n.cidr.prefix + 1))
+	child := n.children[childIdx]
+	return child.get(cidr)
+}
+
+func (t *V6Trie) CoveredBy(cidr V6CIDR) bool {
+	return V6CommonPrefix(t.root.cidr, cidr) == cidr
+}
+
+func (t *V6Trie) Covers(cidr V6CIDR) bool {
+	return t.root.covers(cidr)
+}
+
+func (n *V6Node) covers(cidr V6CIDR) bool {
+	if n == nil {
+		return false
+	}
+
+	if V6CommonPrefix(n.cidr, cidr) != n.cidr {
+		// Not in trie.
+		return false
+	}
+
+	if n.data != nil {
+		return true
+	}
+
+	// If we get here, then this node is a parent of the CIDR we're looking for.
+	// Figure out which child to recurse on.
+	childIdx := cidr.addr.NthBit(uint(n.cidr.prefix + 1))
+	child := n.children[childIdx]
+	return child.covers(cidr)
+}
+
+func (t *V6Trie) Intersects(cidr V6CIDR) bool {
+	return t.root.intersects(cidr)
+}
+
+func (n *V6Node) intersects(cidr V6CIDR) bool {
+	if n == nil {
+		return false
+	}
+
+	common := V6CommonPrefix(n.cidr, cidr)
+
+	if common == cidr {
+		// This node's CIDR is contained within the target CIDR so we must have
+		// some value that is inside the target CIDR.
+		return true
+	}
+
+	if common != n.cidr {
+		// The CIDRs are disjoint.
+		return false
+	}
+
+	// If we get here, then this node is a parent of the CIDR we're looking for.
+	// Figure out which child to recurse on.
+	childIdx := cidr.addr.NthBit(uint(n.cidr.prefix + 1))
+	child := n.children[childIdx]
+	return child.intersects(cidr)
+}
+
+func (n *V6Node) appendTo(s []V6TrieEntry) []V6TrieEntry {
+	if n == nil {
+		return s
+	}
+	if n.data != nil {
+		s = append(s, V6TrieEntry{
+			CIDR: n.cidr,
+			Data: n.data,
+		})
+	}
+	s = n.children[0].appendTo(s)
+	s = n.children[1].appendTo(s)
+	return s
+}
+
+func (n *V6Node) visit(f func(cidr V6CIDR, data interface{}) bool) bool {
+	if n == nil {
+		return true
+	}
+
+	if n.data != nil {
+		keepGoing := f(n.cidr, n.data)
+		if !keepGoing {
+			return false
+		}
+	}
+	keepGoing := n.children[0].visit(f)
+	if !keepGoing {
+		return false
+	}
+	return n.children[1].visit(f)
+}
+
+func (t *V6Trie) ToSlice() []V6TrieEntry {
+	return t.root.appendTo(nil)
+}
+
+func (t *V6Trie) Visit(f func(cidr V6CIDR, data interface{}) bool) {
+	t.root.visit(f)
+}
+
+func (t *V6Trie) Update(cidr V6CIDR, value interface{}) {
+	if value == nil {
+		log.Panic("Can't store nil in a V4Trie")
+	}
+	parentsPtr := &t.root
+	thisNode := t.root
+
+	for {
+		if thisNode == nil {
+			// We've run off the end of the tree, create new child to hold this data.
+			newNode := &V6Node{
+				cidr: cidr,
+				data: value,
+			}
+			*parentsPtr = newNode
+			return
+		}
+
+		if thisNode.cidr == cidr {
+			// Found a node with exactly this CIDR, just update the data.
+			thisNode.data = value
+			return
+		}
+
+		// If we get here, there are three cases:
+		// - CIDR of this node contains the new CIDR, in which case we need look for matching child
+		// - The new CIDR contains this node, in which case we need to insert a new node as the parent of this one.
+		// - The two CIDRs are disjoint, in which case we need to insert a new intermediate node as the parent of
+		//   thisNode and the new CIDR.
+		commonPrefix := V6CommonPrefix(cidr, thisNode.cidr)
+
+		if commonPrefix.prefix == thisNode.cidr.prefix {
+			// Common is this node's CIDR so this node is parent of the new CIDR. Figure out which child to recurse on.
+			childIdx := cidr.addr.NthBit(uint(commonPrefix.prefix + 1))
+			parentsPtr = &thisNode.children[childIdx]
+			thisNode = thisNode.children[childIdx]
+			continue
+		}
+
+		if commonPrefix.prefix == cidr.prefix {
+			// Common is new CIDR so this node is a child of the new CIDR. Insert new node.
+			newNode := &V6Node{
+				cidr: cidr,
+				data: value,
+			}
+			childIdx := thisNode.cidr.addr.NthBit(uint(commonPrefix.prefix + 1))
+			newNode.children[childIdx] = thisNode
+			*parentsPtr = newNode
+			return
+		}
+
+		// Neither CIDR contains the other.  Create an internal node with this node and new CIDR as children.
+		newInternalNode := &V6Node{
+			cidr: commonPrefix,
+		}
+		childIdx := thisNode.cidr.addr.NthBit(uint(commonPrefix.prefix + 1))
+		newInternalNode.children[childIdx] = thisNode
+		newInternalNode.children[1-childIdx] = &V6Node{
+			cidr: cidr,
+			data: value,
+		}
+		*parentsPtr = newInternalNode
+		return
+	}
+}
+
 func V4CommonPrefix(a, b V4CIDR) V4CIDR {
 	var result V4CIDR
 	var maxLen uint8
@@ -377,6 +712,33 @@ func V4CommonPrefix(a, b V4CIDR) V4CIDR {
 	mask := uint32(0xffffffff) << (32 - result.prefix)
 	commonPrefix32 := mask & a32
 	binary.BigEndian.PutUint32(result.addr[:], commonPrefix32)
+
+	return result
+}
+
+func V6CommonPrefix(a, b V6CIDR) V6CIDR {
+	var result V6CIDR
+	var maxLen uint8
+	if b.prefix < a.prefix {
+		maxLen = b.prefix
+	} else {
+		maxLen = a.prefix
+	}
+
+	a128 := a.addr.AsUint32()
+	b128 := b.addr.AsUint32()
+
+	xored := a128 ^ b128 // Has a zero bit wherever the two values are the same.
+	commonPrefixLen := uint8(bits.LeadingZeros32(xored))
+	if commonPrefixLen > maxLen {
+		result.prefix = maxLen
+	} else {
+		result.prefix = commonPrefixLen
+	}
+
+	mask := uint32(0xffffffff) << (128 - result.prefix)
+	commonPrefix128 := mask & a128
+	binary.BigEndian.PutUint32(result.addr[:], commonPrefix128)
 
 	return result
 }
