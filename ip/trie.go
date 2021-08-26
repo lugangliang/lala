@@ -16,6 +16,7 @@ package ip
 
 import (
 	"encoding/binary"
+	uint128 "github.com/cockroachdb/cockroach/pkg/util/uint128"
 	"log"
 	"math/bits"
 )
@@ -427,7 +428,7 @@ func (t *V6Trie) Get(cidr V6CIDR) interface{} {
 	return t.root.get(cidr)
 }
 
-// LookupPath looks up the given CIDR in the trie.  It returns a slice containing a V4TrieEntry for each
+// LookupPath looks up the given CIDR in the trie.  It returns a slice containing a V6TrieEntry for each
 // CIDR in the trie that encloses the given CIDR.  If buffer is non-nil, then it is used to store the entries;
 // if it is too short append() is used to extend it and the updated slice is returned.
 //
@@ -718,27 +719,40 @@ func V4CommonPrefix(a, b V4CIDR) V4CIDR {
 
 func V6CommonPrefix(a, b V6CIDR) V6CIDR {
 	var result V6CIDR
-	var maxLen uint8
+	var maxLen, commonPrefixLen uint8
+	var mask128 uint128.Uint128
 	if b.prefix < a.prefix {
 		maxLen = b.prefix
 	} else {
 		maxLen = a.prefix
 	}
 
-	a128 := a.addr.AsUint32()
-	b128 := b.addr.AsUint32()
+	a128 := uint128.FromBytes(a.addr.AsNetIP())
+	b128 := uint128.FromBytes(b.addr.AsNetIP())
 
-	xored := a128 ^ b128 // Has a zero bit wherever the two values are the same.
-	commonPrefixLen := uint8(bits.LeadingZeros32(xored))
+	xoredHi := a128.Xor(b128).Hi
+	xoredLo := a128.Xor(b128).Lo
+
+	if xoredHi != 0 {
+		commonPrefixLen = uint8(bits.LeadingZeros64(xoredHi))
+
+		mask128.Hi = uint64(0xffffffffffffffff) << (64 - commonPrefixLen)
+		mask128.Lo = 0
+	} else {
+		commonPrefixLen = uint8(bits.LeadingZeros64(xoredLo)) + 64
+		mask128.Hi = uint64(0xffffffffffffffff)
+		mask128.Lo = uint64(0xffffffffffffffff) << (64 - uint8(bits.LeadingZeros64(xoredLo)))
+	}
+
 	if commonPrefixLen > maxLen {
 		result.prefix = maxLen
 	} else {
 		result.prefix = commonPrefixLen
 	}
 
-	mask := uint32(0xffffffff) << (128 - result.prefix)
-	commonPrefix128 := mask & a128
-	binary.BigEndian.PutUint32(result.addr[:], commonPrefix128)
+	commonPrefix128 := mask128.And(a128)
 
+	binary.BigEndian.PutUint64(result.addr[:8], commonPrefix128.Hi)
+	binary.BigEndian.PutUint64(result.addr[8:], commonPrefix128.Lo)
 	return result
 }

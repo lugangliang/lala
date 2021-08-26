@@ -5,6 +5,7 @@ go 1.15
 require (
 	github.com/Microsoft/hcsshim v0.8.10-0.20200715222032-5eafd1556990
 	github.com/aws/aws-sdk-go v1.35.24
+	github.com/cockroachdb/cockroach v20.1.15+incompatible
 	github.com/containernetworking/plugins v0.8.2
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
@@ -42,12 +43,13 @@ require (
 	k8s.io/client-go v0.21.0-rc.0
 	k8s.io/kubernetes v1.21.0-rc.0
 	modernc.org/memory v1.0.4
+
 )
 
 replace (
 	github.com/Microsoft/hcsshim => github.com/projectcalico/hcsshim v0.8.9-calico
-	github.com/sirupsen/logrus => github.com/projectcalico/logrus v0.0.0-20180701205716-fc9bbf2f5799
 	github.com/projectcalico/libcalico-go v1.7.2-0.20210513174936-6ccf0906db1d => github.com/formy99/libcalico-go v1.7.2-0.20210729033717-67aa0ebe77dc
+	github.com/sirupsen/logrus => github.com/projectcalico/logrus v0.0.0-20180701205716-fc9bbf2f5799
 	// Need replacements for all the k8s subsidiary projects that are pulled in indirectly because
 	// the kubernets repo pulls them in via a replacement to its own vendored copies, which doesn't work for
 	// transient imports.

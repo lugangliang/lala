@@ -24,6 +24,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/cockroachdb/cockroach/pkg/util/uint128"
 	"math/bits"
 	"net"
 	"strings"
@@ -106,7 +107,11 @@ func (a V6Addr) AsUint32() uint32 {
 }
 
 func (a V6Addr) NthBit(n uint) int {
-	return int(a.AsUint32() >> (128 - n) & 1)
+	a128 := uint128.FromBytes(a.AsNetIP())
+	if n <= 64 {
+		return int(a128.Hi >> (64 - n) & 1)
+	}
+	return int(a128.Lo >> (128 - n) & 1)
 }
 
 func (a V6Addr) String() string {
@@ -186,10 +191,18 @@ func (c V6CIDR) String() string {
 }
 
 func (c V6CIDR) ContainsV6(addr V6Addr) bool {
-	a32 := c.addr.AsUint32()
-	b32 := addr.AsUint32()
-	xored := a32 ^ b32 // Has a zero bit wherever the two values are the same.
-	commonPrefixLen := uint8(bits.LeadingZeros32(xored))
+	var commonPrefixLen uint8
+
+	a128 := uint128.FromBytes(c.addr.AsNetIP())
+	b128 := uint128.FromBytes(addr.AsNetIP())
+
+	xoredHi := a128.Xor(b128).Hi
+	xoredLo := a128.Xor(b128).Lo
+	if xoredHi != 0 {
+		commonPrefixLen = uint8(bits.LeadingZeros64(xoredHi))
+	} else {
+		commonPrefixLen = uint8(bits.LeadingZeros64(xoredLo)) + 64
+	}
 	return commonPrefixLen >= c.prefix
 }
 
