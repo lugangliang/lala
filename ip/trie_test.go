@@ -26,47 +26,48 @@ import (
 	"github.com/projectcalico/libcalico-go/lib/set"
 )
 
-var _ = DescribeTable("V4CommonPrefix",
+var _ = DescribeTable("V6CommonPrefix",
 	func(a, b, expected string) {
-		aCIDR := ip.MustParseCIDROrIP(a).(ip.V4CIDR)
-		bCIDR := ip.MustParseCIDROrIP(b).(ip.V4CIDR)
-		expCIDR := ip.MustParseCIDROrIP(expected).(ip.V4CIDR)
+		aCIDR := ip.MustParseCIDROrIP(a).(ip.V6CIDR)
+		bCIDR := ip.MustParseCIDROrIP(b).(ip.V6CIDR)
+		expCIDR := ip.MustParseCIDROrIP(expected).(ip.V6CIDR)
 
-		Expect(ip.V4CommonPrefix(aCIDR, bCIDR)).To(Equal(expCIDR))
-		Expect(ip.V4CommonPrefix(bCIDR, aCIDR)).To(Equal(expCIDR))
+		Expect(ip.V6CommonPrefix(aCIDR, bCIDR)).To(Equal(expCIDR))
+		Expect(ip.V6CommonPrefix(bCIDR, aCIDR)).To(Equal(expCIDR))
+
 	},
 	// Zero cases.
-	cpEntry("0.0.0.0/0", "0.0.0.0/0", "0.0.0.0/0"),
-	cpEntry("0.0.0.0/0", "10.0.0.0/8", "0.0.0.0/0"),
-	cpEntry("0.0.0.0/0", "0.0.3.0/24", "0.0.0.0/0"),
+	cpEntry("::/0", "::/0", "::/0"),
+	cpEntry("::/0", "10::/8", "::/0"),
+	cpEntry("::/0", "0:0:3::0/24", "::/0"),
 
 	// One contained in the other.
-	cpEntry("10.0.0.0/8", "10.0.3.0/24", "10.0.0.0/8"),
+	cpEntry("2021::/112", "2021::3f/122", "2021::/112"),
 
-	// Disjoint.
-	cpEntry("64.0.0.0/8", "65.0.3.0/24", "64.0.0.0/7"),
-	cpEntry("64.0.0.0/9", "65.0.3.128/25", "64.0.0.0/7"),
-	cpEntry("64.0.3.0/24", "65.0.3.0/24", "64.0.0.0/7"),
-	cpEntry("64.0.3.0/8", "64.0.3.0/24", "64.0.0.0/8"), // Non-canonical CIDR
+	//Disjoint.
+	cpEntry("2021::fffe:0/112", "2021::ffff:1/117", "2021::fffe:0/111"),
+	cpEntry("2021::fffe:0/112", "2021::ffff:1cfc/117", "2021::fffe:0/111"),
+	cpEntry("2021::fffe:ffff/120", "2021::fffe:1111/120", "2021::fffe:0/112"),
+	cpEntry("2021::fffe:ffff/112", "2021::fffe:ffff/120", "2021::fffe:ffff/112"), // Non-canonical CIDR
 )
 
 func cpEntry(a, b, exp string) TableEntry {
 	return Entry(fmt.Sprintf("Common prefix of %v and %v should be %v", a, b, exp), a, b, exp)
 }
 
-var _ = Describe("V4Trie tests", func() {
-	var trie *ip.V4Trie
+var _ = Describe("V6Trie tests", func() {
+	var trie *ip.V6Trie
 
 	BeforeEach(func() {
-		trie = &ip.V4Trie{}
+		trie = &ip.V6Trie{}
 	})
 
 	update := func(cidr string) {
-		trie.Update(ip.MustParseCIDROrIP(cidr).(ip.V4CIDR), "data:"+cidr)
+		trie.Update(ip.MustParseCIDROrIP(cidr).(ip.V6CIDR), "data:"+cidr)
 	}
 
 	remove := func(cidr string) {
-		trie.Delete(ip.MustParseCIDROrIP(cidr).(ip.V4CIDR))
+		trie.Delete(ip.MustParseCIDROrIP(cidr).(ip.V6CIDR))
 	}
 
 	contents := func() []string {
@@ -81,7 +82,7 @@ var _ = Describe("V4Trie tests", func() {
 
 	lookup := func(cidr string) []string {
 		var s []string
-		for _, t := range trie.LookupPath(nil, ip.MustParseCIDROrIP(cidr).(ip.V4CIDR)) {
+		for _, t := range trie.LookupPath(nil, ip.MustParseCIDROrIP(cidr).(ip.V6CIDR)) {
 			cidrStr := t.CIDR.String()
 			Expect(t.Data).To(Equal("data:"+cidrStr), "Trie returned entry with unexpected data")
 			s = append(s, cidrStr)
@@ -90,12 +91,12 @@ var _ = Describe("V4Trie tests", func() {
 	}
 
 	lpm := func(cidr string, expectedCidr string) interface{} {
-		cidrIn := ip.MustParseCIDROrIP(cidr).(ip.V4CIDR)
+		cidrIn := ip.MustParseCIDROrIP(cidr).(ip.V6CIDR)
 		cidrOut, data := trie.LPM(cidrIn)
 
 		if data != nil {
-			Expect(cidrOut.ContainsV4(cidrIn.Addr().(ip.V4Addr))).To(BeTrue())
-			cidrExp := ip.MustParseCIDROrIP(expectedCidr).(ip.V4CIDR)
+			Expect(cidrOut.ContainsV6(cidrIn.Addr().(ip.V6Addr))).To(BeTrue())
+			cidrExp := ip.MustParseCIDROrIP(expectedCidr).(ip.V6CIDR)
 			Expect(cidrExp).To(Equal(cidrOut))
 		}
 
@@ -103,117 +104,123 @@ var _ = Describe("V4Trie tests", func() {
 	}
 
 	It("should allow inserting a single CIDR", func() {
-		update("10.0.0.0/8")
-		Expect(contents()).To(ConsistOf("10.0.0.0/8"))
+		update("2021::fffe:0/112")
+		Expect(contents()).To(ConsistOf("2021::fffe:0/112"))
 	})
 
 	It("should ignore deletes empty trie", func() {
-		remove("11.0.0.0/8")
+		remove("2020::fffe:0/112")
 		Expect(contents()).To(BeEmpty())
 	})
 
 	It("should ignore deletes for outside the trie", func() {
-		update("10.0.0.0/8")
-		remove("11.0.0.0/8")
-		Expect(contents()).To(ConsistOf("10.0.0.0/8"))
+		update("2021::fffe:0/112")
+		remove("2020::fffe:0/112")
+		Expect(contents()).To(ConsistOf("2021::fffe:0/112"))
 	})
 
 	It("should ignore deletes when recursing on child that turns out to have a mismatch with the target", func() {
-		update("10.0.0.0/8")
-		update("10.0.1.0/24")
-		remove("10.0.0.1/32")
-		Expect(contents()).To(ConsistOf("10.0.0.0/8", "10.0.1.0/24"))
+		update("2021::fffe:0/112")
+		update("2021::fffe:ff00/120")
+		remove("2021::fffe:ffff/128")
+		Expect(contents()).To(ConsistOf("2021::fffe:0/112", "2021::fffe:ff00/120"))
 	})
 
 	It("should ignore deletes when child is missing", func() {
-		update("10.0.0.0/8")
-		remove("10.0.0.1/32")
-		Expect(contents()).To(ConsistOf("10.0.0.0/8"))
+		update("2021::fffe:0/112")
+		remove("2021::fffe:ffff/128")
+		Expect(contents()).To(ConsistOf("2021::fffe:0/112"))
 	})
 
 	It("should fail to lookup in empty trie", func() {
-		Expect(lookup("11.0.0.0/8")).To(BeEmpty())
+		Expect(lookup("2021::fffe:0/112")).To(BeEmpty())
 	})
 
 	It("should fail to lookup outside the trie", func() {
-		update("10.0.0.0/8")
-		Expect(lookup("11.0.0.0/8")).To(BeEmpty())
+		update("2021::fffe:0/112")
+		Expect(lookup("2020::fffe:0/112")).To(BeEmpty())
 	})
 
 	It("should fail to lookup intermediate node", func() {
-		update("0.0.0.0/1")
-		update("128.0.0.0/1")
-		Expect(lookup("0.0.0.0/0")).To(BeEmpty())
+		update("::/1")
+		update("f000::/1")
+		Expect(lookup("::/0")).To(BeEmpty())
 	})
 
 	It("should fail to lookup when recursing on child that turns out to have a mismatch with the target", func() {
-		update("10.0.0.0/8")
-		update("10.0.1.0/24")
-		Expect(lookup("11.0.0.0/8")).To(BeEmpty())
+		update("2021::fffe:0/112")
+		update("2021::fffe:ff00/120")
+		Expect(lookup("2020::fffe:0/112")).To(BeEmpty())
 	})
 
 	It("should fail to lookup when child is missing", func() {
-		update("10.0.0.0/8")
-		Expect(lookup("11.0.0.0/8")).To(BeEmpty())
+		update("2021::fffe:0/112")
+		Expect(lookup("2020::fffe:0/112")).To(BeEmpty())
 	})
 
 	Context("LPM", func() {
 		Context("single node", func() {
 			BeforeEach(func() {
-				update("10.2.1.0/24")
+				update("2021::fffe:ff00/120") //10.2.1.0/24
 			})
 
-			It("should find 10.2.1.1", func() {
-				Expect(lpm("10.2.1.1/32", "10.2.1.0/24")).NotTo(BeNil())
+			It("should find 021::fffe:ff01/128", func() {
+				Expect(lpm("2021::fffe:ff01/128", "2021::fffe:ff00/120")).NotTo(BeNil())
 			})
 
-			It("should not find 10.2.3.1", func() {
-				Expect(lpm("10.2.3.1/32", "")).To(BeNil())
+			It("should not find 2021::fffe:fe01/128", func() {
+				Expect(lpm("2021::fffe:fe01/128", "")).To(BeNil())
 			})
 		})
 
 		Context("without value in root", func() {
 			BeforeEach(func() {
-				update("1.1.1.1/8")
-				update("1.1.5.1/24")
-				update("1.1.1.1/16")
-				update("1.1.1.1/32")
-				update("2.1.1.1/8")
-				update("2.1.1.1/16")
+				//update("1.1.1.1/8")
+				//update("1.1.5.1/24")
+				//update("1.1.1.1/16")
+				//update("1.1.1.1/32")
+				//update("2.1.1.1/8")
+				//update("2.1.1.1/16")
+				update("2021::ffff:0001/112")
+				update("2021::ffff:ff01/120")
+				update("2021::ffff:0001/116")
+				update("2021::ffff:0001/128")
+				update("2022::ffff:0001/112")
+				update("2022::ffff:0001/120")
 			})
 
 			It("should find precise", func() {
-				Expect(lpm("1.1.1.1/32", "1.1.1.1/32")).NotTo(BeNil())
+				Expect(lpm("2021::ffff:0001/128", "2021::ffff:0001/128")).NotTo(BeNil())
 			})
 
 			It("should find prefix for precise", func() {
-				Expect(lpm("1.1.1.5/32", "1.1.1.1/16")).NotTo(BeNil())
+				Expect(lpm("2021::ffff:0001/128", "2021::ffff:0001/116")).NotTo(BeNil())
 			})
 
 			It("should find internal node", func() {
-				Expect(lpm("1.1.0.0/16", "1.1.0.0/16")).NotTo(BeNil())
+				Expect(lpm("2021::ffff:0/116", "2021::ffff:0/116")).NotTo(BeNil())
 			})
 
 			It("should find internal prefix", func() {
-				Expect(lpm("1.1.2.0/24", "1.1.0.0/16")).NotTo(BeNil())
+				Expect(lpm("2021::ffff:0100/120", "2021::ffff:0/116")).NotTo(BeNil())
 			})
 
 			It("should find root prefix", func() {
-				Expect(lpm("3.0.0.0/7", "2.1.1.1/8")).NotTo(BeNil())
+				Expect(lpm("2023::ffff:0/111", "2022::ffff:0001/112")).NotTo(BeNil())
 			})
 
 			It("should not find prefix", func() {
-				Expect(lpm("4.0.0.0/7", "")).To(BeNil())
+				Expect(lpm("2024::ffff:0/111", "")).To(BeNil())
 			})
 		})
 
 		Context("LPM with root", func() {
 			BeforeEach(func() {
-				update("0.0.0.0/0")
+				update("::/0")
 			})
 
 			It("should find root", func() {
-				Expect(lpm("4.0.0.0/7", "0.0.0.0/0")).NotTo(BeNil())
+				Expect(lpm("2024::ffff:0/111", "::/0")).NotTo(BeNil())
 			})
 		})
 	})
@@ -257,12 +264,12 @@ var _ = Describe("V4Trie tests", func() {
 				}
 			})
 		},
-		pEntry("0.0.0.0/0"),
-		pEntry("10.0.0.0/8"),
-		pEntry("0.0.0.0/0", "10.0.0.0/8", "11.0.0.0/8"),
-		pEntry("132.2.3.4/32", "132.2.3.5/32", "132.2.3.6/32"),
-		pEntry("0.0.0.0/0", "128.0.0.0/1", "0.0.0.0/1"), // 0.0.0.0/0 is the intermediate node for the other two CIDRs.
-		pEntry("1.0.0.0/8", "1.0.0.0/24", "1.0.0.27/32"),
+		pEntry("::/0"),
+		pEntry("2021::ffff:0/112"),
+		pEntry("::/0", "2021::ffff:0/112", "2021::ffff:0/112"),
+		pEntry("2022::ffff:1/128", "2022::ffff:2/128", "2022::ffff:3/128"),
+		pEntry("::/0", "ff::/1", "::1"), // 0.0.0.0/0 is the intermediate node for the other two CIDRs.
+		pEntry("ff::/112", "ff::/120", "ff::/128"),
 	)
 })
 
