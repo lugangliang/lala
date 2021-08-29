@@ -125,7 +125,7 @@ func (i l3rrNodeInfo) AddresesV6AsCIDRs() []ip.V6CIDR {
 
 	for _, a := range i.Addresses {
 		if a.Version() == 4 {
-			addrs[a.(ip.V4Addr)] = struct{}{}
+			continue
 		} else {
 			addrs[a.(ip.V6Addr)] = struct{}{}
 		}
