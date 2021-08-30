@@ -125,7 +125,7 @@ func (i l3rrNodeInfo) AddresesV6AsCIDRs() []ip.V6CIDR {
 
 	for _, a := range i.Addresses {
 		if a.Version() == 4 {
-			addrs[a.(ip.V4Addr)] = struct{}{}
+			continue
 		} else {
 			addrs[a.(ip.V6Addr)] = struct{}{}
 		}
@@ -351,6 +351,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 			if ipv6 == nil {
 				ipv6, caliNodeCIDR = cresources.FindNodeAddress(node, apiv3.ExternalIP)
 			}
+			logCxt.Info("djk addr: ", ipv6.String())
 			if ipv6 != nil && caliNodeCIDR != nil {
 				nodeInfo = &l3rrNodeInfo{
 					Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
