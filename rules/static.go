@@ -225,7 +225,7 @@ func (r *DefaultRuleRenderer) filterInputChain(ipVersion uint8) *Chain {
 		)
 	}
 
-	if ipVersion == 6 && r.VXLANEnabled {
+	if r.VXLANEnabled {
 		// VXLAN is enabled, filter incoming VXLAN packets that match our VXLAN port to ensure they
 		// come from a recognised host and are going to a local address on the host.
 		inputRules = append(inputRules,
@@ -235,7 +235,15 @@ func (r *DefaultRuleRenderer) filterInputChain(ipVersion uint8) *Chain {
 					SourceIPSet(r.IPSetConfigV4.NameForMainIPSet(IPSetIDAllVXLANSourceNets)).
 					DestAddrType(AddrTypeLocal),
 				Action:  r.filterAllowAction,
-				Comment: []string{"Allow VXLAN packets from whitelisted hosts"},
+				Comment: []string{"Allow VXLAN IPv4 packets from whitelisted hosts"},
+			},
+			Rule{
+				Match: Match().ProtocolNum(ProtoUDP).
+					DestPorts(uint16(r.Config.VXLANPort)).
+					SourceIPSet(r.IPSetConfigV6.NameForMainIPSet(IPSetIDAllVXLANSourceNets)).
+					DestAddrType(AddrTypeLocal),
+				Action:  r.filterAllowAction,
+				Comment: []string{"Allow VXLAN IPv6 packets from whitelisted hosts"},
 			},
 			Rule{
 				Match: Match().ProtocolNum(ProtoUDP).
@@ -679,7 +687,7 @@ func (r *DefaultRuleRenderer) filterOutputChain(ipVersion uint8) *Chain {
 		)
 	}
 
-	if ipVersion == 6 && r.VXLANEnabled {
+	if r.VXLANEnabled {
 		// When VXLAN is enabled, auto-allow VXLAN traffic to other Calico nodes.  Without this,
 		// it's too easy to make a host policy that blocks VXLAN traffic, resulting in very confusing
 		// connectivity problems.
@@ -690,7 +698,15 @@ func (r *DefaultRuleRenderer) filterOutputChain(ipVersion uint8) *Chain {
 					SrcAddrType(AddrTypeLocal, false).
 					DestIPSet(r.IPSetConfigV4.NameForMainIPSet(IPSetIDAllVXLANSourceNets)),
 				Action:  r.filterAllowAction,
-				Comment: []string{"Allow VXLAN packets to other whitelisted hosts"},
+				Comment: []string{"Allow VXLAN IPv4 packets to other whitelisted hosts"},
+			},
+			Rule{
+				Match: Match().ProtocolNum(ProtoUDP).
+					DestPorts(uint16(r.Config.VXLANPort)).
+					SrcAddrType(AddrTypeLocal, false).
+					DestIPSet(r.IPSetConfigV6.NameForMainIPSet(IPSetIDAllVXLANSourceNets)),
+				Action:  r.filterAllowAction,
+				Comment: []string{"Allow VXLAN IPv6 packets to other whitelisted hosts"},
 			},
 		)
 	}
@@ -776,7 +792,7 @@ func (r *DefaultRuleRenderer) StaticNATPostroutingChains(ipVersion uint8) []*Cha
 	if ipVersion == 4 && r.IPIPEnabled && len(r.IPIPTunnelAddress) > 0 {
 		tunnelIfaces = append(tunnelIfaces, "tunl0")
 	}
-	if ipVersion == 6 && r.VXLANEnabled && len(r.VXLANTunnelAddress) > 0 {
+	if  r.VXLANEnabled && len(r.VXLANTunnelIPv4Address) > 0 && len(r.VXLANTunnelIPv6Address) > 0 {
 		tunnelIfaces = append(tunnelIfaces, "vxlan.calico")
 	}
 	if ipVersion == 4 && r.WireguardEnabled && len(r.WireguardInterfaceName) > 0 {

@@ -3372,8 +3372,10 @@ func (m *RouteRemove) GetDst() string {
 type VXLANTunnelEndpointUpdate struct {
 	Node           string `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
 	Mac            string `protobuf:"bytes,2,opt,name=mac,proto3" json:"mac,omitempty"`
+	Ipv4Addr       string `protobuf:"bytes,3,opt,name=ipv4_addr,json=ipv4Addr,proto3" json:"ipv4_addr,omitempty"`
 	Ipv6Addr       string `protobuf:"bytes,3,opt,name=ipv6_addr,json=ipv6Addr,proto3" json:"ipv6_addr,omitempty"`
-	ParentDeviceIp string `protobuf:"bytes,4,opt,name=parent_device_ip,json=parentDeviceIp,proto3" json:"parent_device_ip,omitempty"`
+	ParentDeviceIPv4 string `protobuf:"bytes,4,opt,name=parent_device_ip,json=parentDeviceIPv4,proto3" json:"parent_device_ipv4,omitempty"`
+	ParentDeviceIPv6 string `protobuf:"bytes,4,opt,name=parent_device_ip,json=parentDeviceIPv6,proto3" json:"parent_device_ipv6,omitempty"`
 }
 
 func (m *VXLANTunnelEndpointUpdate) Reset()         { *m = VXLANTunnelEndpointUpdate{} }
@@ -3404,9 +3406,16 @@ func (m *VXLANTunnelEndpointUpdate) GetIpv6Addr() string {
 	return ""
 }
 
-func (m *VXLANTunnelEndpointUpdate) GetParentDeviceIp() string {
+func (m *VXLANTunnelEndpointUpdate) GetParentDeviceIPv4() string {
 	if m != nil {
-		return m.ParentDeviceIp
+		return m.ParentDeviceIPv4
+	}
+	return ""
+}
+
+func (m *VXLANTunnelEndpointUpdate) GetParentDeviceIPv6() string {
+	if m != nil {
+		return m.ParentDeviceIPv6
 	}
 	return ""
 }
@@ -16864,7 +16873,7 @@ func (m *VXLANTunnelEndpointUpdate) Unmarshal(dAtA []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			m.ParentDeviceIp = string(dAtA[iNdEx:postIndex])
+			m.ParentDeviceIP = string(dAtA[iNdEx:postIndex])
 			iNdEx = postIndex
 		default:
 			iNdEx = preIndex
