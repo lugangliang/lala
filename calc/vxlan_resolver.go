@@ -137,11 +137,18 @@ func (c *VXLANResolver) OnHostIPUpdate(update api.Update) (_ bool) {
 }
 
 func (c *VXLANResolver) onNodeIPUpdate(nodeName string, newIP string) {
+	var currIP string
 	logCxt := logrus.WithField("node", nodeName)
 	// Host IP updated or added. If it was added, we should check to see if we're ready
 	// to send a VTEP and associated routes. If we already knew about this one, we need to
 	// see if it has changed. If it has, we should reprogram the VTEP.
-	currIP := c.nodeNameToIPAddr[nodeName]
+	ipVersion := gonet.ParseIP(newIP).To4()
+	if ipVersion != nil {
+		currIP = c.nodeNameToIPv4Addr[nodeName]
+	}else {
+		currIP = c.nodeNameToIPv6Addr[nodeName]
+	}
+	//currIP := c.nodeNameToIPAddr[nodeName]
 	logCxt = logCxt.WithFields(logrus.Fields{"newIP": newIP, "currIP": currIP})
 	if c.vtepSent(nodeName) {
 		if currIP == newIP {
@@ -231,7 +238,8 @@ func (c *VXLANResolver) OnHostConfigUpdate(update api.Update) (_ bool) {
 		}
 	case "VXLANTunnelMACAddr":
 		nodeName := update.Key.(model.HostConfigKey).Hostname
-		vtepSent := c.vtepSentV6(nodeName)
+		vtepSentV4 := c.vtepSentV4(nodeName)
+		vtepSentV6 := c.vtepSentV6(nodeName)
 		logCxt := logrus.WithField("node", nodeName).WithField("value", update.Value)
 		logCxt.Debug("VXLANTunnelMACAddr update")
 		if update.Value != nil {
@@ -240,7 +248,7 @@ func (c *VXLANResolver) OnHostConfigUpdate(update api.Update) (_ bool) {
 			currMAC := c.vtepMACForHost(nodeName)
 			logCxt = logCxt.WithFields(logrus.Fields{"newMAC": newMAC, "currMAC": currMAC})
 			c.nodeNameToVXLANMac[nodeName] = newMAC
-			if vtepSent {
+			if vtepSentV4 && vtepSentV6 {
 				if currMAC == newMAC {
 					// If we've already handled this node, there's nothing to do. Deduplicate.
 					logCxt.Debug("Skipping duplicate tunnel MAC addr update")
