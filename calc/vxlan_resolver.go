@@ -93,6 +93,7 @@ func (c *VXLANResolver) RegisterWith(allUpdDispatcher *dispatcher.Dispatcher) {
 }
 
 func (c *VXLANResolver) OnResourceUpdate(update api.Update) (_ bool) {
+	var isIPv4 bool
 	resourceKey := update.Key.(model.ResourceKey)
 	if resourceKey.Kind != apiv3.KindNode {
 		return
@@ -105,16 +106,30 @@ func (c *VXLANResolver) OnResourceUpdate(update api.Update) (_ bool) {
 		node := update.Value.(*apiv3.Node)
 		bgp := node.Spec.BGP
 		c.nodeNameToNode[nodeName] = node
+
+		ipv4, _, err := cnet.ParseCIDROrIP(bgp.IPv4Address)
+		if err != nil {
+			logCxt.WithError(err).Error("couldn't parse ipv4 address from node bgp info")
+			return
+		}
+		if ipv4 != nil {
+			c.onNodeIPUpdate(nodeName, ipv4.String())
+			isIPv4 = true
+		}
+
 		ipv6, _, err := cnet.ParseCIDROrIP(bgp.IPv6Address)
 		if err != nil {
 			logCxt.WithError(err).Error("couldn't parse ipv6 address from node bgp info")
 			return
 		}
+		if ipv6 != nil {
+			c.onNodeIPUpdate(nodeName, ipv6.String())
+		}
 
-		c.onNodeIPUpdate(nodeName, ipv6.String())
 	} else {
+
 		delete(c.nodeNameToNode, nodeName)
-		c.onRemoveNode(nodeName)
+		c.onRemoveNode(nodeName, isIPv4)
 	}
 
 	return
@@ -125,32 +140,39 @@ func (c *VXLANResolver) OnResourceUpdate(update api.Update) (_ bool) {
 // of them to the data plane. On a delete, we need to withdraw the VTEP associated
 // with the node.
 func (c *VXLANResolver) OnHostIPUpdate(update api.Update) (_ bool) {
+	var isIPv4 bool
 	nodeName := update.Key.(model.HostIPKey).Hostname
+	if update.Value.(*cnet.IP).To4() != nil {
+		isIPv4 = true
+	}
 	logrus.WithField("node", nodeName).Debug("OnHostIPUpdate triggered")
 
 	if update.Value != nil {
 		c.onNodeIPUpdate(nodeName, update.Value.(*cnet.IP).String())
 	} else {
-		c.onRemoveNode(nodeName)
+		c.onRemoveNode(nodeName, isIPv4)
 	}
 	return
 }
 
 func (c *VXLANResolver) onNodeIPUpdate(nodeName string, newIP string) {
 	var currIP string
+	var vtepSent bool
 	logCxt := logrus.WithField("node", nodeName)
 	// Host IP updated or added. If it was added, we should check to see if we're ready
 	// to send a VTEP and associated routes. If we already knew about this one, we need to
 	// see if it has changed. If it has, we should reprogram the VTEP.
-	ipVersion := gonet.ParseIP(newIP).To4()
-	if ipVersion != nil {
+	isIPv4 := gonet.ParseIP(newIP).To4()
+	if isIPv4 != nil {
 		currIP = c.nodeNameToIPv4Addr[nodeName]
+		vtepSent = c.vtepSentV4(nodeName)
 	}else {
 		currIP = c.nodeNameToIPv6Addr[nodeName]
+		vtepSent = c.vtepSentV6(nodeName)
 	}
 	//currIP := c.nodeNameToIPAddr[nodeName]
 	logCxt = logCxt.WithFields(logrus.Fields{"newIP": newIP, "currIP": currIP})
-	if c.vtepSent(nodeName) {
+	if vtepSent {
 		if currIP == newIP {
 			// If we've already handled this node, there's nothing to do. Deduplicate.
 			logCxt.Debug("Skipping duplicate node IP update")
@@ -163,14 +185,23 @@ func (c *VXLANResolver) onNodeIPUpdate(nodeName string, newIP string) {
 	}
 
 	// Try sending a VTEP update.
-	c.nodeNameToIPAddr[nodeName] = newIP
+
+	if isIPv4 != nil {
+		c.nodeNameToIPv4Addr[nodeName] = newIP
+	}else {
+		c.nodeNameToIPv6Addr[nodeName] = newIP
+	}
 	c.sendVTEPUpdate(nodeName)
 }
 
-func (c *VXLANResolver) onRemoveNode(nodeName string) {
+func (c *VXLANResolver) onRemoveNode(nodeName string, isIPv4 bool) {
 	logCxt := logrus.WithField("node", nodeName)
 	logCxt.Info("Withdrawing VTEP, node IP address deleted")
-	delete(c.nodeNameToIPAddr, nodeName)
+	if isIPv4 {
+		delete(c.nodeNameToIPv4Addr, nodeName)
+	}else {
+		delete(c.nodeNameToIPv6Addr, nodeName)
+	}
 	c.sendVTEPRemove(nodeName)
 }
 
@@ -290,24 +321,32 @@ func (c *VXLANResolver) vtepSentV6(node string) bool {
 	return true
 }
 func (c *VXLANResolver) sendVTEPUpdate(node string) bool {
+	var ipv4Existed, ipv6Existed bool
 	logCxt := logrus.WithField("node", node)
 	tunlIPv4Addr, ok := c.nodeNameToVXLANTunnelIPv4Addr[node]
+	ipv4Existed = true
 	if !ok {
 		logCxt.Info("Missing vxlan tunnel IPv4 address for node, cannot send VTEP yet")
-		return false
+		ipv4Existed = false
 	}
 	parentDeviceIPv4, ok := c.nodeNameToIPv4Addr[node]
 	if !ok {
 		logCxt.Info("Missing IP for node, cannot send VTEP yet")
-		return false
+		ipv4Existed = false
 	}
+	ipv6Existed = true
 	tunlIPv6Addr, ok := c.nodeNameToVXLANTunnelIPv6Addr[node]
 	if !ok {
 		logCxt.Info("Missing vxlan tunnel IPv4 address for node, cannot send VTEP yet")
-		return false
+		ipv6Existed = false
 	}
 	parentDeviceIPv6, ok := c.nodeNameToIPv6Addr[node]
 	if !ok {
+		logCxt.Info("Missing IP for node, cannot send VTEP yet")
+		ipv6Existed = false
+	}
+
+	if ipv4Existed == false && ipv6Existed == false {
 		logCxt.Info("Missing IP for node, cannot send VTEP yet")
 		return false
 	}
