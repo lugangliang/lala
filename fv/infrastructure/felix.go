@@ -39,7 +39,9 @@ type Felix struct {
 	ExpectedIPIPTunnelAddr string
 	// ExpectedVXLANTunnelAddr contains the IP that the infrastructure expects to
 	// get assigned to the VXLAN tunnel.  Filled in by AddNode().
-	ExpectedVXLANTunnelAddr string
+	ExpectedVXLANTunnelIPv4Addr string
+
+	ExpectedVXLANTunnelIPv6Addr string
 	// ExpectedWireguardTunnelAddr contains the IP that the infrastructure expects to
 	// get assigned to the Wireguard tunnel.  Filled in by AddNode().
 	ExpectedWireguardTunnelAddr string
