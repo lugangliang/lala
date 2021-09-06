@@ -555,8 +555,8 @@ func (kds *K8sDatastoreInfra) SetExpectedIPIPTunnelAddr(felix *Felix, idx int, n
 }
 
 func (kds *K8sDatastoreInfra) SetExpectedVXLANTunnelAddr(felix *Felix, idx int, needBGP bool) {
-	felix.ExpectedVXLANTunnelAddr = fmt.Sprintf("10.65.%d.0", idx)
-	felix.ExtraSourceIPs = append(felix.ExtraSourceIPs, felix.ExpectedVXLANTunnelAddr)
+	felix.ExpectedVXLANTunnelIPv4Addr = fmt.Sprintf("10.65.%d.0", idx)
+	felix.ExtraSourceIPs = append(felix.ExtraSourceIPs, felix.ExpectedVXLANTunnelIPv4Addr)
 }
 
 func (kds *K8sDatastoreInfra) SetExpectedWireguardTunnelAddr(felix *Felix, idx int, needWg bool) {
@@ -608,8 +608,11 @@ func (kds *K8sDatastoreInfra) AddNode(felix *Felix, idx int, needBGP bool) {
 	if felix.ExpectedIPIPTunnelAddr != "" {
 		nodeIn.Annotations["projectcalico.org/IPv4IPIPTunnelAddr"] = felix.ExpectedIPIPTunnelAddr
 	}
-	if felix.ExpectedVXLANTunnelAddr != "" {
-		nodeIn.Annotations["projectcalico.org/IPv6VXLANTunnelAddr"] = felix.ExpectedVXLANTunnelAddr
+	if felix.ExpectedVXLANTunnelIPv4Addr != "" {
+		nodeIn.Annotations["projectcalico.org/IPv4VXLANTunnelAddr"] = felix.ExpectedVXLANTunnelIPv4Addr
+	}
+	if felix.ExpectedVXLANTunnelIPv6Addr != "" {
+		nodeIn.Annotations["projectcalico.org/IPv6VXLANTunnelAddr"] = felix.ExpectedVXLANTunnelIPv6Addr
 	}
 	if felix.ExpectedWireguardTunnelAddr != "" {
 		nodeIn.Annotations["projectcalico.org/IPv4WireguardInterfaceAddr"] = felix.ExpectedWireguardTunnelAddr

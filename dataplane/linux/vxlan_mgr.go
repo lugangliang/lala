@@ -252,12 +252,23 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 				logrus.WithError(err).Warn("Failed to parse VTEP mac address")
 				continue
 			}
-			l2routes = append(l2routes, routetable.L2Target{
-				VTEPMAC: mac,
-				GW:      ip.FromString(u.Ipv6Addr),
-				IP:      ip.FromString(u.ParentDeviceIp),
-			})
-			allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIp)
+			if u.Ipv4Addr != "" && u.ParentDeviceIPv4 != "" {
+				l2routes = append(l2routes, routetable.L2Target{
+					VTEPMAC: mac,
+					GW:      ip.FromString(u.Ipv4Addr),
+					IP:      ip.FromString(u.ParentDeviceIPv4),
+				})
+				allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIPv4)
+			}
+			if u.Ipv6Addr != "" && u.ParentDeviceIPv6 != "" {
+				l2routes = append(l2routes, routetable.L2Target{
+					VTEPMAC: mac,
+					GW:      ip.FromString(u.Ipv6Addr),
+					IP:      ip.FromString(u.ParentDeviceIPv6),
+				})
+				allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIPv6)
+			}
+
 		}
 		logrus.WithField("l2routes", l2routes).Debug("VXLAN manager sending L2 updates")
 		m.routeTable.SetL2Routes(m.vxlanDevice, l2routes)
@@ -300,15 +311,24 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 					logCtx.Debug("Dataplane has route with no corresponding VTEP")
 					continue
 				}
-
-				vxlanRoute := routetable.Target{
-					Type: routetable.TargetTypeVXLAN,
-					CIDR: cidr,
-					GW:   ip.FromString(vtep.Ipv6Addr),
+				if vtep.Ipv4Addr != "" && vtep.ParentDeviceIPv4 != "" {
+					vxlanRoute := routetable.Target{
+						Type: routetable.TargetTypeVXLAN,
+						CIDR: cidr,
+						GW:   ip.FromString(vtep.Ipv4Addr),
+					}
+					vxlanRoutes = append(vxlanRoutes, vxlanRoute)
+					logCtx.WithField("route", vxlanRoute).Debug("adding vxlan route to list for addition")
 				}
-
-				vxlanRoutes = append(vxlanRoutes, vxlanRoute)
-				logCtx.WithField("route", vxlanRoute).Debug("adding vxlan route to list for addition")
+				if vtep.Ipv6Addr != "" && vtep.ParentDeviceIPv6 != "" {
+					vxlanRoute := routetable.Target{
+						Type: routetable.TargetTypeVXLAN,
+						CIDR: cidr,
+						GW:   ip.FromString(vtep.Ipv6Addr),
+					}
+					vxlanRoutes = append(vxlanRoutes, vxlanRoute)
+					logCtx.WithField("route", vxlanRoute).Debug("adding vxlan route to list for addition")
+				}
 			}
 		}
 
@@ -361,9 +381,12 @@ func (m *vxlanManager) KeepVXLANDeviceInSync(mtu int, xsumBroken bool, wait time
 			continue
 		} else {
 			if m.getNoEncapRouteTable() == nil {
-				noEncapRouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 6, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceAddress,
+				noEncapV4RouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 4, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceAddress,
 					m.noEncapProtocol, false)
-				m.setNoEncapRouteTable(noEncapRouteTable)
+				m.setNoEncapRouteTable(noEncapV4RouteTable)
+				noEncapV6RouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 6, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceAddress,
+					m.noEncapProtocol, false)
+				m.setNoEncapRouteTable(noEncapV6RouteTable)
 			}
 		}
 
@@ -396,13 +419,13 @@ func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUp
 			return nil, err
 		}
 		for _, addr := range addrs {
-			if addr.IPNet.IP.String() == localVTEP.ParentDeviceIp {
+			if addr.IPNet.IP.String() == localVTEP.ParentDeviceIPv6  || addr.IPNet.IP.String() == localVTEP.ParentDeviceIPv4{
 				logrus.Debugf("Found parent interface: %s", link)
 				return link, nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("Unable to find parent interface with address %s", localVTEP.ParentDeviceIp)
+	return nil, fmt.Errorf("Unable to find parent interface with address %s", localVTEP.ParentDeviceIPv6)
 }
 
 // configureVXLANDevice ensures the VXLAN tunnel device is up and configured correctly.
@@ -425,7 +448,7 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 		VxlanId:      m.vxlanID,
 		Port:         m.vxlanPort,
 		VtepDevIndex: parent.Attrs().Index,
-		SrcAddr:      ip.FromString(localVTEP.ParentDeviceIp).AsNetIP(),
+		SrcAddr:      ip.FromString(localVTEP.ParentDeviceIPv6).AsNetIP(),
 	}
 
 	// Try to get the device.
@@ -479,7 +502,11 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 		}
 	}
 
-	// Make sure the IP address is configured.
+	// Make sure the IPv4 address is configured.
+	if err := m.ensureV4AddressOnLink(localVTEP.Ipv4Addr, link); err != nil {
+		return fmt.Errorf("failed to ensure address of interface: %s", err)
+	}
+	// Make sure the IPv6 address is configured.
 	if err := m.ensureV6AddressOnLink(localVTEP.Ipv6Addr, link); err != nil {
 		return fmt.Errorf("failed to ensure address of interface: %s", err)
 	}
@@ -501,6 +528,42 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 
 // ensureV4AddressOnLink ensures that the provided IPv4 address is configured on the provided Link. If there are other addresses,
 // this function will remove them, ensuring that the desired IPv4 address is the _only_ address on the Link.
+func (m *vxlanManager) ensureV4AddressOnLink(ipStr string, link netlink.Link) error {
+	_, net, err := net.ParseCIDR(ipStr + "/32")
+	if err != nil {
+		return err
+	}
+	addr := netlink.Addr{IPNet: net}
+	existingAddrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V4)
+	if err != nil {
+		return err
+	}
+
+	// Remove any addresses which we don't want.
+	addrPresent := false
+	for _, existing := range existingAddrs {
+		if reflect.DeepEqual(existing.IPNet, addr.IPNet) {
+			addrPresent = true
+			continue
+		}
+		logrus.WithFields(logrus.Fields{"address": existing, "link": link.Attrs().Name}).Warn("Removing unwanted IPv4 address from VXLAN device")
+		if err := m.nlHandle.AddrDel(link, &existing); err != nil {
+			return fmt.Errorf("failed to remove IP address %s", existing)
+		}
+	}
+
+	// Actually add the desired address to the interface if needed.
+	if !addrPresent {
+		logrus.WithFields(logrus.Fields{"address": addr}).Info("Assigning IPv4 address to VXLAN device")
+		if err := m.nlHandle.AddrAdd(link, &addr); err != nil {
+			return fmt.Errorf("failed to add IPv4 address")
+		}
+	}
+	return nil
+}
+
+// ensureV6AddressOnLink ensures that the provided IPv6 address is configured on the provided Link. If there are other addresses,
+// this function will remove them, ensuring that the desired IPv6 address is the _only_ address on the Link.
 func (m *vxlanManager) ensureV6AddressOnLink(ipStr string, link netlink.Link) error {
 	_, net, err := net.ParseCIDR(ipStr + "/128")
 	if err != nil {
