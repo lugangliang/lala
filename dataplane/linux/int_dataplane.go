@@ -431,23 +431,23 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 	dp.iptablesFilterTables = append(dp.iptablesFilterTables, filterTableV4)
 	dp.ipSets = append(dp.ipSets, ipSetsV4)
 
-	//if config.RulesConfig.VXLANEnabled {
-	//	routeTableVXLAN := routetable.New([]string{"^vxlan.calico$"}, 4, true, config.NetlinkTimeout,
-	//		config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
-	//		dp.loopSummarizer)
-	//
-	//	vxlanManager := newVXLANManager(
-	//		ipSetsV4,
-	//		routeTableVXLAN,
-	//		"vxlan.calico",
-	//		config,
-	//		dp.loopSummarizer,
-	//	)
-	//	go vxlanManager.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
-	//	dp.RegisterManager(vxlanManager)
-	//} else {
-	//	cleanUpVXLANDevice()
-	//}
+	if config.RulesConfig.VXLANEnabled {
+		routeTableVXLAN := routetable.New([]string{"^vxlan.calico$"}, 4, true, config.NetlinkTimeout,
+			config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
+			dp.loopSummarizer)
+
+		vxlanManagerV4 := newVXLANManager(
+			ipSetsV4,
+			routeTableVXLAN,
+			"vxlan.calico",
+			config,
+			dp.loopSummarizer,
+		)
+		go vxlanManagerV4.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
+		dp.RegisterManager(vxlanManagerV4)
+	} else {
+		cleanUpVXLANDevice()
+	}
 
 	dp.endpointStatusCombiner = newEndpointStatusCombiner(dp.fromDataplane, config.IPv6Enabled)
 
@@ -801,15 +801,15 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 				config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
 				dp.loopSummarizer)
 
-			vxlanManager := newVXLANManager(
+			vxlanManagerV6 := newVXLANManager(
 				ipSetsV6,
 				routeTableVXLAN,
 				"vxlan.calico",
 				config,
 				dp.loopSummarizer,
 			)
-			go vxlanManager.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
-			dp.RegisterManager(vxlanManager)
+			go vxlanManagerV6.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
+			dp.RegisterManager(vxlanManagerV6)
 		} else {
 			cleanUpVXLANDevice()
 		}

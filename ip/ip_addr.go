@@ -123,6 +123,7 @@ type CIDR interface {
 	Addr() Addr
 	Prefix() uint8
 	String() string
+	Contains(addr Addr) bool
 	ToIPNet() net.IPNet
 }
 
@@ -150,9 +151,9 @@ func (c V4CIDR) ToIPNet() net.IPNet {
 	}
 }
 
-func (c V4CIDR) ContainsV4(addr V4Addr) bool {
+func (c V4CIDR) Contains(addr Addr) bool {
 	a32 := c.addr.AsUint32()
-	b32 := addr.AsUint32()
+	b32 := binary.BigEndian.Uint32([addr[:])
 	xored := a32 ^ b32 // Has a zero bit wherever the two values are the same.
 	commonPrefixLen := uint8(bits.LeadingZeros32(xored))
 	return commonPrefixLen >= c.prefix
@@ -190,7 +191,7 @@ func (c V6CIDR) String() string {
 	return fmt.Sprintf("%s/%v", c.addr.String(), c.prefix)
 }
 
-func (c V6CIDR) ContainsV6(addr V6Addr) bool {
+func (c V6CIDR) Contains(addr Addr) bool {
 	var commonPrefixLen uint8
 
 	a128 := uint128.FromBytes(c.addr.AsNetIP())

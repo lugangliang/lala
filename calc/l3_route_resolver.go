@@ -351,7 +351,6 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 			if ipv6 == nil {
 				ipv6, caliNodeCIDR = cresources.FindNodeAddress(node, apiv3.ExternalIP)
 			}
-			logCxt.Info("djk addr: ", ipv6.String())
 			if ipv6 != nil && caliNodeCIDR != nil {
 				nodeInfo = &l3rrNodeInfo{
 					Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
@@ -829,7 +828,7 @@ func (r *RouteTrie) UpdatePool(cidr ip.V6CIDR, poolType proto.IPPoolType, natOut
 func (r *RouteTrie) markChildrenDirty(cidr ip.V6CIDR) {
 	// TODO: avoid full scan to mark children dirty
 	r.t.Visit(func(c ip.V6CIDR, data interface{}) bool {
-		if cidr.ContainsV6(c.Addr().(ip.V6Addr)) {
+		if cidr.Contains(c.Addr().(ip.V6Addr)) {
 			r.MarkCIDRDirty(c)
 		}
 		return true
