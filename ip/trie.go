@@ -66,7 +66,7 @@ func (t *V6Trie) Delete(cidr V6CIDR) {
 }
 
 func deleteInternal(n *V4Node, cidr V4CIDR) *V4Node {
-	if !n.cidr.ContainsV4(cidr.addr) {
+	if !n.cidr.Contains(cidr.addr) {
 		// Not in trie.
 		return n
 	}
@@ -107,7 +107,7 @@ func deleteInternal(n *V4Node, cidr V4CIDR) *V4Node {
 }
 
 func deleteInternalV6(n *V6Node, cidr V6CIDR) *V6Node {
-	if !n.cidr.ContainsV6(cidr.addr) {
+	if !n.cidr.Contains(cidr.addr) {
 		// Not in trie.
 		return n
 	}
@@ -175,7 +175,7 @@ func (t *V4Trie) LPM(cidr V4CIDR) (V4CIDR, interface{}) {
 			break
 		}
 
-		if !n.cidr.ContainsV4(cidr.addr) {
+		if !n.cidr.Contains(cidr.addr) {
 			break
 		}
 
@@ -204,7 +204,7 @@ func (n *V4Node) lookupPath(buffer []V4TrieEntry, cidr V4CIDR) []V4TrieEntry {
 		return buffer[:0]
 	}
 
-	if !n.cidr.ContainsV4(cidr.addr) {
+	if !n.cidr.Contains(cidr.addr) {
 		// Not in trie.
 		return nil
 	}
@@ -233,7 +233,7 @@ func (n *V4Node) get(cidr V4CIDR) interface{} {
 		return nil
 	}
 
-	if !n.cidr.ContainsV4(cidr.addr) {
+	if !n.cidr.Contains(cidr.addr) {
 		// Not in trie.
 		return nil
 	}
@@ -447,7 +447,7 @@ func (t *V6Trie) LPM(cidr V6CIDR) (V6CIDR, interface{}) {
 			break
 		}
 
-		if !n.cidr.ContainsV6(cidr.addr) {
+		if !n.cidr.Contains(cidr.addr) {
 			break
 		}
 
@@ -476,7 +476,7 @@ func (n *V6Node) lookupPath(buffer []V6TrieEntry, cidr V6CIDR) []V6TrieEntry {
 		return buffer[:0]
 	}
 
-	if !n.cidr.ContainsV6(cidr.addr) {
+	if !n.cidr.Contains(cidr.addr) {
 		// Not in trie.
 		return nil
 	}
@@ -505,7 +505,7 @@ func (n *V6Node) get(cidr V6CIDR) interface{} {
 		return nil
 	}
 
-	if !n.cidr.ContainsV6(cidr.addr) {
+	if !n.cidr.Contains(cidr.addr) {
 		// Not in trie.
 		return nil
 	}
