@@ -16,9 +16,10 @@ package ip
 
 import (
 	"encoding/binary"
-	uint128 "github.com/cockroachdb/cockroach/pkg/util/uint128"
 	"log"
 	"math/bits"
+
+	uint128 "github.com/cockroachdb/cockroach/pkg/util/uint128"
 )
 
 type V4Trie struct {

@@ -57,13 +57,13 @@ type VXLANResolver struct {
 	// block that contributed them. The following comprises the full internal data model.
 	nodeNameToVXLANTunnelIPv4Addr map[string]string
 	nodeNameToVXLANTunnelIPv6Addr map[string]string
-	nodeNameToIPv4Addr          map[string]string
-	nodeNameToIPv6Addr          map[string]string
-	nodeNameToNode            map[string]*apiv3.Node
-	nodeNameToVXLANMac        map[string]string
-	blockToRoutes             map[string]set.Set
-	vxlanPools                map[string]model.IPPool
-	useNodeResourceUpdates    bool
+	nodeNameToIPv4Addr            map[string]string
+	nodeNameToIPv6Addr            map[string]string
+	nodeNameToNode                map[string]*apiv3.Node
+	nodeNameToVXLANMac            map[string]string
+	blockToRoutes                 map[string]set.Set
+	vxlanPools                    map[string]model.IPPool
+	useNodeResourceUpdates        bool
 }
 
 func NewVXLANResolver(hostname string, callbacks vxlanCallbacks, useNodeResourceUpdates bool) *VXLANResolver {
@@ -72,8 +72,8 @@ func NewVXLANResolver(hostname string, callbacks vxlanCallbacks, useNodeResource
 		callbacks:                     callbacks,
 		nodeNameToVXLANTunnelIPv4Addr: map[string]string{},
 		nodeNameToVXLANTunnelIPv6Addr: map[string]string{},
-		nodeNameToIPv4Addr:              map[string]string{},
-		nodeNameToIPv6Addr:              map[string]string{},
+		nodeNameToIPv4Addr:            map[string]string{},
+		nodeNameToIPv6Addr:            map[string]string{},
 		nodeNameToNode:                map[string]*apiv3.Node{},
 		nodeNameToVXLANMac:            map[string]string{},
 		blockToRoutes:                 map[string]set.Set{},
@@ -166,7 +166,7 @@ func (c *VXLANResolver) onNodeIPUpdate(nodeName string, newIP string) {
 	if isIPv4 != nil {
 		currIP = c.nodeNameToIPv4Addr[nodeName]
 		vtepSent = c.vtepSentV4(nodeName)
-	}else {
+	} else {
 		currIP = c.nodeNameToIPv6Addr[nodeName]
 		vtepSent = c.vtepSentV6(nodeName)
 	}
@@ -188,7 +188,7 @@ func (c *VXLANResolver) onNodeIPUpdate(nodeName string, newIP string) {
 
 	if isIPv4 != nil {
 		c.nodeNameToIPv4Addr[nodeName] = newIP
-	}else {
+	} else {
 		c.nodeNameToIPv6Addr[nodeName] = newIP
 	}
 	c.sendVTEPUpdate(nodeName)
@@ -199,7 +199,7 @@ func (c *VXLANResolver) onRemoveNode(nodeName string, isIPv4 bool) {
 	logCxt.Info("Withdrawing VTEP, node IP address deleted")
 	if isIPv4 {
 		delete(c.nodeNameToIPv4Addr, nodeName)
-	}else {
+	} else {
 		delete(c.nodeNameToIPv6Addr, nodeName)
 	}
 	c.sendVTEPRemove(nodeName)
@@ -353,12 +353,12 @@ func (c *VXLANResolver) sendVTEPUpdate(node string) bool {
 
 	logCxt.Debug("Sending VTEP to dataplane")
 	vtep := &proto.VXLANTunnelEndpointUpdate{
-		Node:           node,
+		Node:             node,
 		ParentDeviceIPv4: parentDeviceIPv4,
 		ParentDeviceIPv6: parentDeviceIPv6,
-		Mac:            c.vtepMACForHost(node),
-		Ipv4Addr:       tunlIPv4Addr,
-		Ipv6Addr:       tunlIPv6Addr,
+		Mac:              c.vtepMACForHost(node),
+		Ipv4Addr:         tunlIPv4Addr,
+		Ipv6Addr:         tunlIPv6Addr,
 	}
 	c.callbacks.OnVTEPUpdate(vtep)
 	return true

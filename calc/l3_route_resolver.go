@@ -64,10 +64,10 @@ type L3RouteResolver struct {
 	nodeNameToNodeInfo     map[string]l3rrNodeInfo
 	blockToRoutes          map[string]set.Set
 	nodeRoutes             nodeIPv6Routes
-	nodeIPv4Routes		   nodeIPv4Routes
+	nodeIPv4Routes         nodeIPv4Routes
 	allPools               map[string]model.IPPool
-	workloadIDToIPv4CIDRs      map[model.WorkloadEndpointKey][]cnet.IPNet
-	workloadIDToIPv6CIDRs      map[model.WorkloadEndpointKey][]cnet.IPNet
+	workloadIDToIPv4CIDRs  map[model.WorkloadEndpointKey][]cnet.IPNet
+	workloadIDToIPv6CIDRs  map[model.WorkloadEndpointKey][]cnet.IPNet
 	useNodeResourceUpdates bool
 	routeSource            string
 }
@@ -78,18 +78,17 @@ type l3rrNodeInfo struct {
 	IPv6Addr ip.V6Addr
 	IPv6CIDR ip.V6CIDR
 
-
 	// Tunnel IP addresses
-	IPIPAddr          ip.Addr
-	VXLANIPv4Addr     ip.Addr
-	VXLANAddr         ip.Addr
-	WireguardAddr     ip.Addr
+	IPIPAddr      ip.Addr
+	VXLANIPv4Addr ip.Addr
+	VXLANAddr     ip.Addr
+	WireguardAddr ip.Addr
 
 	Addresses []ip.Addr
 }
 
 func (i l3rrNodeInfo) Equal(b l3rrNodeInfo) bool {
-	if  i.IPv4Addr == b.IPv4Addr &&
+	if i.IPv4Addr == b.IPv4Addr &&
 		i.IPv4CIDR == b.IPv4CIDR &&
 		i.IPIPAddr == b.IPIPAddr &&
 		i.VXLANAddr == b.VXLANAddr &&
@@ -184,8 +183,8 @@ func NewL3RouteResolver(hostname string, callbacks PipelineCallbacks, useNodeRes
 		nodeNameToNodeInfo:     map[string]l3rrNodeInfo{},
 		blockToRoutes:          map[string]set.Set{},
 		allPools:               map[string]model.IPPool{},
-		workloadIDToIPv4CIDRs:      map[model.WorkloadEndpointKey][]cnet.IPNet{},
-		workloadIDToIPv6CIDRs:      map[model.WorkloadEndpointKey][]cnet.IPNet{},
+		workloadIDToIPv4CIDRs:  map[model.WorkloadEndpointKey][]cnet.IPNet{},
+		workloadIDToIPv6CIDRs:  map[model.WorkloadEndpointKey][]cnet.IPNet{},
 		useNodeResourceUpdates: useNodeResourceUpdates,
 		routeSource:            routeSource,
 		nodeRoutes:             newNodeRoutes(),
@@ -222,7 +221,7 @@ func (c *L3RouteResolver) OnWorkloadUpdate(update api.Update) (_ bool) {
 	defer func() {
 		if ipv4DeepEqual {
 			c.flushV4()
-		}else {
+		} else {
 			c.flush()
 		}
 	}()
@@ -237,20 +236,20 @@ func (c *L3RouteResolver) OnWorkloadUpdate(update api.Update) (_ bool) {
 	var newIPv4CIDRs, newIPv6CIDRs []cnet.IPNet
 	if update.Value != nil {
 		newWorkload := update.Value.(*model.WorkloadEndpoint)
-		if  len(newWorkload.IPv4Nets) != 0 {
+		if len(newWorkload.IPv4Nets) != 0 {
 			newIPv4CIDRs = newWorkload.IPv4Nets
 			ipv4DeepEqual = reflect.DeepEqual(oldIPv4CIDRs, newIPv4CIDRs)
 			logrus.WithField("workload", key).WithField("newIPv4CIDRs", newIPv4CIDRs).Debug("Workload update")
 		}
-		if  len(newWorkload.IPv6Nets) != 0 {
+		if len(newWorkload.IPv6Nets) != 0 {
 			newIPv6CIDRs = newWorkload.IPv6Nets
-			ipv6DeepEqual = reflect.DeepEqual(oldIPv6CIDRs, newIPv6CIDRs);
+			ipv6DeepEqual = reflect.DeepEqual(oldIPv6CIDRs, newIPv6CIDRs)
 			logrus.WithField("workload", key).WithField("newIPv6CIDRs", newIPv6CIDRs).Debug("Workload update")
 		}
 
 	}
 
-	if  ipv4DeepEqual || ipv6DeepEqual {
+	if ipv4DeepEqual || ipv6DeepEqual {
 		// No change, ignore.
 		logrus.Debug("No change to CIDRs, ignore.")
 		return
@@ -311,7 +310,7 @@ func (c *L3RouteResolver) OnBlockUpdate(update api.Update) (_ bool) {
 	defer func() {
 		if isIPv4 {
 			c.flushV4()
-		}else {
+		} else {
 			c.flush()
 		}
 	}()
@@ -452,8 +451,8 @@ func (c *L3RouteResolver) OnBlockUpdate(update api.Update) (_ bool) {
 				nr, existedV6Route := item.(nodenameIPv6Route)
 				if existedV6Route {
 					c.trie.RemoveBlockRoute(nr.dst)
-				}else {
-					nrV4  := item.(nodenameIPv4Route)
+				} else {
+					nrV4 := item.(nodenameIPv4Route)
 					c.trieV4.RemoveBlockRoute(nrV4.dst)
 				}
 
@@ -477,7 +476,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 	defer func() {
 		if isIPv4 {
 			c.flushV4()
-		}else {
+		} else {
 			c.flush()
 		}
 	}()
@@ -583,7 +582,7 @@ func (c *L3RouteResolver) OnHostIPUpdate(update api.Update) (_ bool) {
 	defer func() {
 		if isIPv4 {
 			c.flushV4()
-		}else {
+		} else {
 			c.flush()
 		}
 	}()
@@ -794,11 +793,10 @@ func (c *L3RouteResolver) OnPoolUpdate(update api.Update) (_ bool) {
 	defer func() {
 		if isIPv4 {
 			c.flushV4()
-		}else {
+		} else {
 			c.flush()
 		}
 	}()
-
 
 	k := update.Key.(model.IPPoolKey)
 	poolKey := k.String()
@@ -825,7 +823,7 @@ func (c *L3RouteResolver) OnPoolUpdate(update api.Update) (_ bool) {
 			poolCIDRV4 := ip.CIDRFromCalicoNet(newPool.CIDR).(ip.V4CIDR)
 			crossSubnet := newPool.IPIPMode == encap.CrossSubnet || newPool.VXLANMode == encap.CrossSubnet
 			c.trieV4.UpdatePool(poolCIDRV4, newPoolType, newPool.Masquerade, crossSubnet)
-		}else {
+		} else {
 			poolCIDRV6 := ip.CIDRFromCalicoNet(newPool.CIDR).(ip.V6CIDR)
 			crossSubnet := newPool.IPIPMode == encap.CrossSubnet || newPool.VXLANMode == encap.CrossSubnet
 			c.trie.UpdatePool(poolCIDRV6, newPoolType, newPool.Masquerade, crossSubnet)
@@ -836,7 +834,7 @@ func (c *L3RouteResolver) OnPoolUpdate(update api.Update) (_ bool) {
 		if oldPool.CIDR.Version() == 4 {
 			poolCIDR := ip.CIDRFromCalicoNet(oldPool.CIDR).(ip.V4CIDR)
 			c.trieV4.RemovePool(poolCIDR)
-		}else {
+		} else {
 			poolCIDR := ip.CIDRFromCalicoNet(oldPool.CIDR).(ip.V6CIDR)
 			c.trie.RemovePool(poolCIDR)
 		}
@@ -926,8 +924,6 @@ func (c *L3RouteResolver) v4RoutesFromBlock(b *model.AllocationBlock) map[string
 
 	return routes
 }
-
-
 
 // flush() iterates over the CIDRs that are marked dirty in the trie and sends any route updates
 // that it finds.
@@ -1287,13 +1283,11 @@ func NewIPv6RouteTrie() *IPv6RouteTrie {
 	return &IPv6RouteTrie{
 		t:          &ip.V6Trie{},
 		dirtyCIDRs: set.New(),
-
-
 	}
 }
 
 type IPv4RouteTrie struct {
-	t	   *ip.V4Trie
+	t          *ip.V4Trie
 	dirtyCIDRs set.Set
 }
 
@@ -1301,10 +1295,8 @@ func NewIPv4RouteTrie() *IPv4RouteTrie {
 	return &IPv4RouteTrie{
 		t:          &ip.V4Trie{},
 		dirtyCIDRs: set.New(),
-
 	}
 }
-
 
 func (r *IPv6RouteTrie) UpdatePool(cidr ip.V6CIDR, poolType proto.IPPoolType, natOutgoing bool, crossSubnet bool) {
 	logrus.WithFields(logrus.Fields{
@@ -1377,7 +1369,6 @@ func (r *IPv4RouteTrie) MarkCIDRDirty(cidr ip.CIDR) {
 func (r *IPv4RouteTrie) RemovePool(cidr ip.V4CIDR) {
 	r.UpdatePool(cidr, proto.IPPoolType_NONE, false, false)
 }
-
 
 func (r *IPv6RouteTrie) UpdateBlockRoute(cidr ip.V6CIDR, nodeName string) {
 	r.updateCIDR(cidr, func(ri *RouteInfo) {
@@ -1762,7 +1753,6 @@ func (nr *nodeIPv6Routes) visitRoutesForNode(nodename string, v func(nodenameIPv
 		v(nodenameIPv6Route{nodeName: nodename, dst: cidr})
 	}
 }
-
 
 type nodeIPv4Routes struct {
 	cache map[string]map[ip.V4CIDR]int

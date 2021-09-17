@@ -792,7 +792,7 @@ func (r *DefaultRuleRenderer) StaticNATPostroutingChains(ipVersion uint8) []*Cha
 	if ipVersion == 4 && r.IPIPEnabled && len(r.IPIPTunnelAddress) > 0 {
 		tunnelIfaces = append(tunnelIfaces, "tunl0")
 	}
-	if  r.VXLANEnabled && (len(r.VXLANTunnelIPv4Address) > 0 || len(r.VXLANTunnelIPv6Address) > 0 ){
+	if r.VXLANEnabled && (len(r.VXLANTunnelIPv4Address) > 0 || len(r.VXLANTunnelIPv6Address) > 0) {
 		tunnelIfaces = append(tunnelIfaces, "vxlan.calico")
 	}
 	if ipVersion == 4 && r.WireguardEnabled && len(r.WireguardInterfaceName) > 0 {

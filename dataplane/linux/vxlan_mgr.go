@@ -362,9 +362,9 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 // checks that it is still correctly configured.
 func (m *vxlanManager) KeepVXLANDeviceInSync(mtu int, xsumBroken bool, wait time.Duration) {
 	logrus.WithFields(logrus.Fields{
-		"mtu": mtu,
+		"mtu":        mtu,
 		"xsumBroken": xsumBroken,
-		"wait": wait,
+		"wait":       wait,
 	}).Info("VXLAN tunnel device thread started.")
 	logNextSuccess := true
 	for {
@@ -419,7 +419,7 @@ func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUp
 			return nil, err
 		}
 		for _, addr := range addrs {
-			if addr.IPNet.IP.String() == localVTEP.ParentDeviceIPv6  || addr.IPNet.IP.String() == localVTEP.ParentDeviceIPv4{
+			if addr.IPNet.IP.String() == localVTEP.ParentDeviceIPv6 || addr.IPNet.IP.String() == localVTEP.ParentDeviceIPv4 {
 				logrus.Debugf("Found parent interface: %s", link)
 				return link, nil
 			}

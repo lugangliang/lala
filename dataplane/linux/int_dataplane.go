@@ -814,7 +814,6 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 			cleanUpVXLANDevice()
 		}
 
-
 		if !config.BPFEnabled {
 			dp.RegisterManager(newIPSetsManager(ipSetsV6, config.MaxIPSetSize, callbacks))
 			dp.RegisterManager(newHostIPManager(
