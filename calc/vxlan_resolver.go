@@ -354,8 +354,8 @@ func (c *VXLANResolver) sendVTEPUpdate(node string) bool {
 	logCxt.Debug("Sending VTEP to dataplane")
 	vtep := &proto.VXLANTunnelEndpointUpdate{
 		Node:             node,
-		ParentDeviceIPv4: parentDeviceIPv4,
-		ParentDeviceIPv6: parentDeviceIPv6,
+		ParentDeviceIpv4: parentDeviceIPv4,
+		ParentDeviceIpv6: parentDeviceIPv6,
 		Mac:              c.vtepMACForHost(node),
 		Ipv4Addr:         tunlIPv4Addr,
 		Ipv6Addr:         tunlIPv6Addr,
