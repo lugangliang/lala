@@ -252,21 +252,21 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 				logrus.WithError(err).Warn("Failed to parse VTEP mac address")
 				continue
 			}
-			if u.Ipv4Addr != "" && u.ParentDeviceIPv4 != "" {
+			if u.Ipv4Addr != "" && u.ParentDeviceIpv4 != "" {
 				l2routes = append(l2routes, routetable.L2Target{
 					VTEPMAC: mac,
 					GW:      ip.FromString(u.Ipv4Addr),
-					IP:      ip.FromString(u.ParentDeviceIPv4),
+					IP:      ip.FromString(u.ParentDeviceIpv4),
 				})
-				allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIPv4)
+				allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIpv4)
 			}
-			if u.Ipv6Addr != "" && u.ParentDeviceIPv6 != "" {
+			if u.Ipv6Addr != "" && u.ParentDeviceIpv6 != "" {
 				l2routes = append(l2routes, routetable.L2Target{
 					VTEPMAC: mac,
 					GW:      ip.FromString(u.Ipv6Addr),
-					IP:      ip.FromString(u.ParentDeviceIPv6),
+					IP:      ip.FromString(u.ParentDeviceIpv6),
 				})
-				allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIPv6)
+				allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIpv6)
 			}
 
 		}
@@ -311,7 +311,7 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 					logCtx.Debug("Dataplane has route with no corresponding VTEP")
 					continue
 				}
-				if vtep.Ipv4Addr != "" && vtep.ParentDeviceIPv4 != "" {
+				if vtep.Ipv4Addr != "" && vtep.ParentDeviceIpv4 != "" {
 					vxlanRoute := routetable.Target{
 						Type: routetable.TargetTypeVXLAN,
 						CIDR: cidr,
@@ -320,7 +320,7 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 					vxlanRoutes = append(vxlanRoutes, vxlanRoute)
 					logCtx.WithField("route", vxlanRoute).Debug("adding vxlan route to list for addition")
 				}
-				if vtep.Ipv6Addr != "" && vtep.ParentDeviceIPv6 != "" {
+				if vtep.Ipv6Addr != "" && vtep.ParentDeviceIpv6 != "" {
 					vxlanRoute := routetable.Target{
 						Type: routetable.TargetTypeVXLAN,
 						CIDR: cidr,
@@ -419,13 +419,13 @@ func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUp
 			return nil, err
 		}
 		for _, addr := range addrs {
-			if addr.IPNet.IP.String() == localVTEP.ParentDeviceIPv6 || addr.IPNet.IP.String() == localVTEP.ParentDeviceIPv4 {
+			if addr.IPNet.IP.String() == localVTEP.ParentDeviceIpv6 || addr.IPNet.IP.String() == localVTEP.ParentDeviceIpv4 {
 				logrus.Debugf("Found parent interface: %s", link)
 				return link, nil
 			}
 		}
 	}
-	return nil, fmt.Errorf("Unable to find parent interface with address %s", localVTEP.ParentDeviceIPv6)
+	return nil, fmt.Errorf("Unable to find parent interface with address %s", localVTEP.ParentDeviceIpv6)
 }
 
 // configureVXLANDevice ensures the VXLAN tunnel device is up and configured correctly.
@@ -448,7 +448,7 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 		VxlanId:      m.vxlanID,
 		Port:         m.vxlanPort,
 		VtepDevIndex: parent.Attrs().Index,
-		SrcAddr:      ip.FromString(localVTEP.ParentDeviceIPv6).AsNetIP(),
+		SrcAddr:      ip.FromString(localVTEP.ParentDeviceIpv6).AsNetIP(),
 	}
 
 	// Try to get the device.
