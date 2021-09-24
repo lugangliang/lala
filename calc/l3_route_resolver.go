@@ -1069,7 +1069,7 @@ func (c *L3RouteResolver) flush() {
 
 func (c *L3RouteResolver) flushV4() {
 	var buf []ip.V4TrieEntry
-	c.trie.dirtyCIDRs.Iter(func(item interface{}) error {
+	c.trieV4.dirtyCIDRs.Iter(func(item interface{}) error {
 		logCxt := logrus.WithField("cidr", item)
 		logCxt.Debug("Flushing dirty route")
 		cidr := item.(ip.V4CIDR)
