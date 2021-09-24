@@ -489,59 +489,66 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 
 	// Update our tracking data structures.
 	var nodeInfo *l3rrNodeInfo
-	if update.Value != nil {
-		node := update.Value.(*apiv3.Node)
-		if node.Spec.BGP != nil && node.Spec.BGP.IPv6Address != "" {
-			bgp := node.Spec.BGP
-			// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
-			// throw away one or the other.
-			ipv6, caliNodeCIDR, err := cnet.ParseCIDROrIP(bgp.IPv6Address)
-			if err != nil {
-				logrus.WithError(err).Panic("Failed to parse already-validated IP address")
-			}
-			nodeInfo = &l3rrNodeInfo{
-				IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
-				IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
-			}
-		} else {
-			ipv6, caliNodeCIDR := cresources.FindNodeAddress(node, apiv3.InternalIP)
-			if ipv6 == nil {
-				ipv6, caliNodeCIDR = cresources.FindNodeAddress(node, apiv3.ExternalIP)
-			}
 
-			if ipv6 != nil && caliNodeCIDR != nil {
+	if update.Value != nil {
+
+		node := update.Value.(*apiv3.Node)
+		switch update.Key.(model.HostConfigKey).Name {
+		case "IPv6VXLANTunnelAddr":
+			if node.Spec.BGP != nil && node.Spec.BGP.IPv6Address != "" {
+				bgp := node.Spec.BGP
+				// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
+				// throw away one or the other.
+				ipv6, caliNodeCIDR, err := cnet.ParseCIDROrIP(bgp.IPv6Address)
+				if err != nil {
+					logrus.WithError(err).Panic("Failed to parse already-validated IP address")
+				}
 				nodeInfo = &l3rrNodeInfo{
 					IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
 					IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
 				}
-			}
-		}
-		if node.Spec.BGP != nil && node.Spec.BGP.IPv4Address != "" {
-			isIPv4 = true
-			bgp := node.Spec.BGP
-			// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
-			// throw away one or the other.
-			ipv4, caliNodeCIDR, err := cnet.ParseCIDROrIP(bgp.IPv4Address)
-			if err != nil {
-				logrus.WithError(err).Panic("Failed to parse already-validated IP address")
-			}
-			nodeInfo = &l3rrNodeInfo{
-				IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
-				IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
-			}
-		} else {
-			ipv4, caliNodeCIDR := cresources.FindNodeIPv4Address(node, apiv3.InternalIP)
-			if ipv4 == nil {
-				ipv4, caliNodeCIDR = cresources.FindNodeIPv4Address(node, apiv3.ExternalIP)
-			}
+			} else {
+				ipv6, caliNodeCIDR := cresources.FindNodeAddress(node, apiv3.InternalIP)
+				if ipv6 == nil {
+					ipv6, caliNodeCIDR = cresources.FindNodeAddress(node, apiv3.ExternalIP)
+				}
 
-			if ipv4 != nil && caliNodeCIDR != nil {
+				if ipv6 != nil && caliNodeCIDR != nil {
+					nodeInfo = &l3rrNodeInfo{
+						IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
+						IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
+					}
+				}
+			}
+		case "IPv4VXLANTunnelAddr":
+			if node.Spec.BGP != nil && node.Spec.BGP.IPv4Address != "" {
+				isIPv4 = true
+				bgp := node.Spec.BGP
+				// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
+				// throw away one or the other.
+				ipv4, caliNodeCIDR, err := cnet.ParseCIDROrIP(bgp.IPv4Address)
+				if err != nil {
+					logrus.WithError(err).Panic("Failed to parse already-validated IP address")
+				}
 				nodeInfo = &l3rrNodeInfo{
 					IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
 					IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
 				}
+			} else {
+				ipv4, caliNodeCIDR := cresources.FindNodeIPv4Address(node, apiv3.InternalIP)
+				if ipv4 == nil {
+					ipv4, caliNodeCIDR = cresources.FindNodeIPv4Address(node, apiv3.ExternalIP)
+				}
+
+				if ipv4 != nil && caliNodeCIDR != nil {
+					nodeInfo = &l3rrNodeInfo{
+						IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
+						IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
+					}
+				}
 			}
 		}
+
 		if nodeInfo != nil {
 			if node.Spec.Wireguard != nil && node.Spec.Wireguard.InterfaceIPv4Address != "" {
 				nodeInfo.WireguardAddr = ip.FromString(node.Spec.Wireguard.InterfaceIPv4Address)
