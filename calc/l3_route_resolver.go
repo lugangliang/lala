@@ -493,8 +493,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 	if update.Value != nil {
 
 		node := update.Value.(*apiv3.Node)
-		switch update.Key.(model.HostConfigKey).Name {
-		case "IPv6VXLANTunnelAddr":
+		logrus.Debugf("node updata value: %v", node)
+
 			if node.Spec.BGP != nil && node.Spec.BGP.IPv6Address != "" {
 				bgp := node.Spec.BGP
 				// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
@@ -520,7 +520,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 					}
 				}
 			}
-		case "IPv4VXLANTunnelAddr":
+
 			if node.Spec.BGP != nil && node.Spec.BGP.IPv4Address != "" {
 				isIPv4 = true
 				bgp := node.Spec.BGP
@@ -547,7 +547,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 					}
 				}
 			}
-		}
+
 
 		if nodeInfo != nil {
 			if node.Spec.Wireguard != nil && node.Spec.Wireguard.InterfaceIPv4Address != "" {
