@@ -221,7 +221,8 @@ func (c *L3RouteResolver) OnWorkloadUpdate(update api.Update) (_ bool) {
 	defer func() {
 		if ipv4DeepEqual {
 			c.flushV4()
-		} else {
+		}
+		if ipv6DeepEqual{
 			c.flush()
 		}
 	}()
@@ -249,7 +250,7 @@ func (c *L3RouteResolver) OnWorkloadUpdate(update api.Update) (_ bool) {
 
 	}
 
-	if ipv4DeepEqual || ipv6DeepEqual {
+	if ipv4DeepEqual && ipv6DeepEqual {
 		// No change, ignore.
 		logrus.Debug("No change to CIDRs, ignore.")
 		return
@@ -305,12 +306,13 @@ func (c *L3RouteResolver) OnWorkloadUpdate(update api.Update) (_ bool) {
 
 func (c *L3RouteResolver) OnBlockUpdate(update api.Update) (_ bool) {
 	// Queue up a flush.
-	var isIPv4 bool
+	var isIPv4, isIPv6 bool
 
 	defer func() {
 		if isIPv4 {
 			c.flushV4()
-		} else {
+		}
+		if isIPv6{
 			c.flush()
 		}
 	}()
@@ -327,7 +329,7 @@ func (c *L3RouteResolver) OnBlockUpdate(update api.Update) (_ bool) {
 		// need to send any updates.
 
 		if update.Value.(*model.AllocationBlock).CIDR.Version() == 6 {
-
+			isIPv6 = true
 			newRoutes := c.v6RoutesFromBlock(update.Value.(*model.AllocationBlock))
 			logrus.WithField("numRoutes", len(newRoutes)).Debug("IPAM block update")
 			cachedRoutes, ok := c.blockToRoutes[key]
@@ -465,7 +467,7 @@ func (c *L3RouteResolver) OnBlockUpdate(update api.Update) (_ bool) {
 }
 
 func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
-	var isIPv4 bool
+	var isIPv4, isIPv6 bool
 	// We only care about nodes, not other resources.
 	resourceKey := update.Key.(model.ResourceKey)
 	if resourceKey.Kind != apiv3.KindNode {
@@ -476,7 +478,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 	defer func() {
 		if isIPv4 {
 			c.flushV4()
-		} else {
+		}
+		if isIPv6 {
 			c.flush()
 		}
 	}()
@@ -496,6 +499,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 		logrus.Debugf("node updata value: %v", node)
 
 			if node.Spec.BGP != nil && node.Spec.BGP.IPv6Address != "" {
+				isIPv6 = true
 				bgp := node.Spec.BGP
 				// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
 				// throw away one or the other.
@@ -584,12 +588,13 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 
 // OnHostIPUpdate gets called whenever a node IP address changes.
 func (c *L3RouteResolver) OnHostIPUpdate(update api.Update) (_ bool) {
-	var isIPv4 bool
+	var isIPv4, isIPv6 bool
 	// Queue up a flush.
 	defer func() {
 		if isIPv4 {
 			c.flushV4()
-		} else {
+		}
+		if isIPv6{
 			c.flush()
 		}
 	}()
@@ -602,6 +607,7 @@ func (c *L3RouteResolver) OnHostIPUpdate(update api.Update) (_ bool) {
 		newCaliIP := update.Value.(*cnet.IP)
 		v6Addr, ok := ip.FromCalicoIP(*newCaliIP).(ip.V6Addr)
 		if ok { // Defensive; we only expect an IPv4.
+			isIPv6 = true
 			newNodeInfo = &l3rrNodeInfo{
 				IPv6Addr: v6Addr,
 				IPv6CIDR: v6Addr.AsCIDR().(ip.V6CIDR), // Don't know the CIDR so use the /32.
@@ -795,12 +801,13 @@ func (c *L3RouteResolver) visitAllIPv4Routes(v func(route nodenameIPv4Route)) {
 // OnPoolUpdate gets called whenever an IP pool changes.
 func (c *L3RouteResolver) OnPoolUpdate(update api.Update) (_ bool) {
 	// Queue up a flush.
-	var isIPv4 bool
+	var isIPv4, isIPv6 bool
 
 	defer func() {
 		if isIPv4 {
 			c.flushV4()
-		} else {
+		}
+		if isIPv6 {
 			c.flush()
 		}
 	}()
@@ -819,7 +826,10 @@ func (c *L3RouteResolver) OnPoolUpdate(update api.Update) (_ bool) {
 		newPool = update.Value.(*model.IPPool)
 		if len(newPool.CIDR.IP.To16()) == 0 {
 			isIPv4 = true
+		}else {
+			isIPv6 = true
 		}
+
 	}
 	newPoolType := c.poolTypeForPool(newPool)
 	logCxt := logrus.WithFields(logrus.Fields{"oldType": oldPoolType, "newType": newPoolType})
