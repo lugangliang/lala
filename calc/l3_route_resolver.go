@@ -742,6 +742,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 	}
 
 	c.markAllNodeRoutesDirty(nodeName)
+	c.markAllNodeIPv4RoutesDirty(nodeName)
 }
 
 func (c *L3RouteResolver) markAllNodeRoutesDirty(nodeName string) {
