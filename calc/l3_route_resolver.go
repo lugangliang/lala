@@ -684,7 +684,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 				nowSameSubnet := myNewIPv4CIDRKnown && myNewIPv4CIDR.Contains(otherNodesIPv4)
 				if wasSameSubnet != nowSameSubnet {
 					logrus.WithField("route", r).Debug("Update to our subnet invalidated route")
-					c.trie.MarkCIDRDirty(r.dst)
+					c.trieV4.MarkCIDRDirty(r.dst)
 				}
 			})
 		}
@@ -753,7 +753,7 @@ func (c *L3RouteResolver) markAllNodeRoutesDirty(nodeName string) {
 
 func (c *L3RouteResolver) markAllNodeIPv4RoutesDirty(nodeName string) {
 	c.nodeIPv4Routes.visitRoutesForNode(nodeName, func(route nodenameIPv4Route) {
-		c.trie.MarkCIDRDirty(route.dst)
+		c.trieV4.MarkCIDRDirty(route.dst)
 	})
 }
 
