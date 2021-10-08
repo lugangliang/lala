@@ -518,6 +518,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				}
 
 				if ipv6 != nil && caliNodeCIDR != nil {
+					isIPv6 = true
 					nodeInfo = &l3rrNodeInfo{
 						IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
 						IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
@@ -545,6 +546,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				}
 
 				if ipv4 != nil && caliNodeCIDR != nil {
+					isIPv4 = true
 					nodeInfo = &l3rrNodeInfo{
 						IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
 						IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
@@ -631,6 +633,7 @@ func (c *L3RouteResolver) OnHostIPUpdate(update api.Update) (_ bool) {
 // Passing newCIDR==nil cleans up the entry in the trie.
 func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInfo) {
 	oldNodeInfo, nodeExisted := c.nodeNameToNodeInfo[nodeName]
+	var myNewIPv4CIDRKnown, myNewIPv6CIDRKnown bool
 
 	if (newNodeInfo == nil && !nodeExisted) || (newNodeInfo != nil && nodeExisted && oldNodeInfo.Equal(*newNodeInfo)) {
 		// No change.
@@ -639,54 +642,62 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 
 	if nodeName == c.myNodeName {
 		// Check if our CIDR has changed and if so recalculate the "same subnet" tracking.
-		var myNewIPv6CIDR ip.V6CIDR
-		var myNewIPv6CIDRKnown bool
-		var myNewIPv4CIDR ip.V4CIDR
-		var myNewIPv4CIDRKnown bool
-		if newNodeInfo != nil {
-			myNewIPv6CIDR = newNodeInfo.IPv6CIDR
-			myNewIPv6CIDRKnown = true
 
-			myNewIPv4CIDR = newNodeInfo.IPv4CIDR
-			myNewIPv4CIDRKnown = true
-		}
-		if oldNodeInfo.IPv6CIDR != myNewIPv6CIDR {
-			// This node's CIDR has changed; some routes may now have an incorrect value for same-subnet.
-			c.visitAllRoutes(func(r nodenameIPv6Route) {
-				if r.nodeName == c.myNodeName {
-					return // Ignore self.
+		var myNewIPv6CIDR ip.V6CIDR
+
+		var myNewIPv4CIDR ip.V4CIDR
+
+		if newNodeInfo != nil {
+			if newNodeInfo.IPv6CIDR.String() != "" {
+				myNewIPv6CIDR = newNodeInfo.IPv6CIDR
+				myNewIPv6CIDRKnown = true
+
+				if oldNodeInfo.IPv6CIDR != myNewIPv6CIDR {
+					// This node's CIDR has changed; some routes may now have an incorrect value for same-subnet.
+					c.visitAllRoutes(func(r nodenameIPv6Route) {
+						if r.nodeName == c.myNodeName {
+							return // Ignore self.
+						}
+						otherNodeInfo, known := c.nodeNameToNodeInfo[r.nodeName]
+						if !known {
+							return // Don't know other node's CIDR so ignore for now.
+						}
+						otherNodesIPv6 := otherNodeInfo.IPv6Addr
+						wasSameSubnet := nodeExisted && oldNodeInfo.IPv6CIDR.Contains(otherNodesIPv6)
+						nowSameSubnet := myNewIPv6CIDRKnown && myNewIPv6CIDR.Contains(otherNodesIPv6)
+						if wasSameSubnet != nowSameSubnet {
+							logrus.WithField("route", r).Debug("Update to our subnet invalidated route")
+							c.trie.MarkCIDRDirty(r.dst)
+						}
+					})
 				}
-				otherNodeInfo, known := c.nodeNameToNodeInfo[r.nodeName]
-				if !known {
-					return // Don't know other node's CIDR so ignore for now.
+			}
+
+			if newNodeInfo.IPv4CIDR.String() != "" {
+				myNewIPv4CIDR = newNodeInfo.IPv4CIDR
+				myNewIPv4CIDRKnown = true
+
+				if oldNodeInfo.IPv4CIDR != myNewIPv4CIDR {
+					// This node's CIDR has changed; some routes may now have an incorrect value for same-subnet.
+					c.visitAllIPv4Routes(func(r nodenameIPv4Route) {
+						if r.nodeName == c.myNodeName {
+							return // Ignore self.
+						}
+						otherNodeInfo, known := c.nodeNameToNodeInfo[r.nodeName]
+						if !known {
+							return // Don't know other node's CIDR so ignore for now.
+						}
+						otherNodesIPv4 := otherNodeInfo.IPv4Addr
+						wasSameSubnet := nodeExisted && oldNodeInfo.IPv4CIDR.Contains(otherNodesIPv4)
+						nowSameSubnet := myNewIPv4CIDRKnown && myNewIPv4CIDR.Contains(otherNodesIPv4)
+						if wasSameSubnet != nowSameSubnet {
+							logrus.WithField("route", r).Debug("Update to our subnet invalidated route")
+							c.trieV4.MarkCIDRDirty(r.dst)
+						}
+					})
 				}
-				otherNodesIPv6 := otherNodeInfo.IPv6Addr
-				wasSameSubnet := nodeExisted && oldNodeInfo.IPv6CIDR.Contains(otherNodesIPv6)
-				nowSameSubnet := myNewIPv6CIDRKnown && myNewIPv6CIDR.Contains(otherNodesIPv6)
-				if wasSameSubnet != nowSameSubnet {
-					logrus.WithField("route", r).Debug("Update to our subnet invalidated route")
-					c.trie.MarkCIDRDirty(r.dst)
-				}
-			})
-		}
-		if oldNodeInfo.IPv4CIDR != myNewIPv4CIDR {
-			// This node's CIDR has changed; some routes may now have an incorrect value for same-subnet.
-			c.visitAllIPv4Routes(func(r nodenameIPv4Route) {
-				if r.nodeName == c.myNodeName {
-					return // Ignore self.
-				}
-				otherNodeInfo, known := c.nodeNameToNodeInfo[r.nodeName]
-				if !known {
-					return // Don't know other node's CIDR so ignore for now.
-				}
-				otherNodesIPv4 := otherNodeInfo.IPv4Addr
-				wasSameSubnet := nodeExisted && oldNodeInfo.IPv4CIDR.Contains(otherNodesIPv4)
-				nowSameSubnet := myNewIPv4CIDRKnown && myNewIPv4CIDR.Contains(otherNodesIPv4)
-				if wasSameSubnet != nowSameSubnet {
-					logrus.WithField("route", r).Debug("Update to our subnet invalidated route")
-					c.trieV4.MarkCIDRDirty(r.dst)
-				}
-			})
+			}
+
 		}
 
 	}
@@ -740,9 +751,14 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 			c.trieV4.AddHost(a, nodeName)
 		}
 	}
+	if myNewIPv4CIDRKnown {
+		c.markAllNodeIPv4RoutesDirty(nodeName)
+	}
+	if myNewIPv4CIDRKnown {
+		c.markAllNodeRoutesDirty(nodeName)
+	}
 
-	c.markAllNodeRoutesDirty(nodeName)
-	c.markAllNodeIPv4RoutesDirty(nodeName)
+
 }
 
 func (c *L3RouteResolver) markAllNodeRoutesDirty(nodeName string) {
