@@ -331,23 +331,23 @@ func (c *VXLANResolver) sendVTEPUpdate(node string) bool {
 	}
 	parentDeviceIPv4, ok := c.nodeNameToIPv4Addr[node]
 	if !ok {
-		logCxt.Info("Missing IP for node, cannot send VTEP yet")
+		logCxt.Info("Missing IPv4 address for node, cannot send VTEP yet")
 		ipv4Existed = false
 	}
 	ipv6Existed = true
 	tunlIPv6Addr, ok := c.nodeNameToVXLANTunnelIPv6Addr[node]
 	if !ok {
-		logCxt.Info("Missing vxlan tunnel IPv4 address for node, cannot send VTEP yet")
+		logCxt.Info("Missing vxlan tunnel IPv6 address for node, cannot send VTEP yet")
 		ipv6Existed = false
 	}
 	parentDeviceIPv6, ok := c.nodeNameToIPv6Addr[node]
 	if !ok {
-		logCxt.Info("Missing IP for node, cannot send VTEP yet")
+		logCxt.Info("Missing IPv6 address for node, cannot send VTEP yet")
 		ipv6Existed = false
 	}
 
 	if ipv4Existed == false && ipv6Existed == false {
-		logCxt.Info("Missing IP for node, cannot send VTEP yet")
+		logCxt.Info("Missing both IPv4 or IPv6 address for node, cannot send VTEP yet")
 		return false
 	}
 
