@@ -506,7 +506,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				if err != nil {
 					logrus.WithError(err).Panic("Failed to parse already-validated IP address")
 				}
-			   logrus.WithField("node bgp ipv6 address", ipv6).Info("newNodeInfo ")
+				logrus.WithField("node bgp ipv6 address", ipv6).Info("newNodeInfo ")
 				logrus.WithField("node bgp ipv6 cidr", caliNodeCIDR).Info("newNodeInfo ")
 				nodeInfo = &l3rrNodeInfo{
 					IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
