@@ -662,8 +662,10 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 				logrus.WithField("String", newNodeInfo.IPv6CIDR.String()).Info("newNodeInfo.IPv6CIDR")
 				myNewIPv6CIDR = newNodeInfo.IPv6CIDR
 				myNewIPv6CIDRKnown = true
+				logrus.WithField("String",  oldNodeInfo.IPv6CIDR.String()).Info("oldNodeInfo.IPv6CIDR")
 
 				if oldNodeInfo.IPv6CIDR != myNewIPv6CIDR {
+					logrus.Info("visitAllRoutes execute start")
 					// This node's CIDR has changed; some routes may now have an incorrect value for same-subnet.
 					c.visitAllRoutes(func(r nodenameIPv6Route) {
 						if r.nodeName == c.myNodeName {
@@ -689,8 +691,10 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 				logrus.WithField("String", newNodeInfo.IPv4CIDR.String()).Info("newNodeInfo.IPv4CIDR")
 				myNewIPv4CIDR = newNodeInfo.IPv4CIDR
 				myNewIPv4CIDRKnown = true
+				logrus.WithField("String",  oldNodeInfo.IPv4CIDR.String()).Info("oldNodeInfo.IPv4CIDR")
 
 				if oldNodeInfo.IPv4CIDR != myNewIPv4CIDR {
+					logrus.Info("visitAllIPv4Routes execute start")
 					// This node's CIDR has changed; some routes may now have an incorrect value for same-subnet.
 					c.visitAllIPv4Routes(func(r nodenameIPv4Route) {
 						if r.nodeName == c.myNodeName {
@@ -708,6 +712,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 							c.trieV4.MarkCIDRDirty(r.dst)
 						}
 					})
+					logrus.Info("visitAllIPv4Routes execute success")
 				}
 			}
 
