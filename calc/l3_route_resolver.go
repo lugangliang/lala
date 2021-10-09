@@ -649,6 +649,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 
 		if newNodeInfo != nil {
 			if newNodeInfo.IPv6CIDR.String() != "" {
+				logrus.WithField("String", newNodeInfo.IPv6CIDR.String()).Info("newNodeInfo.IPv6CIDR")
 				myNewIPv6CIDR = newNodeInfo.IPv6CIDR
 				myNewIPv6CIDRKnown = true
 
@@ -674,6 +675,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 			}
 
 			if newNodeInfo.IPv4CIDR.String() != "" {
+				logrus.WithField("String", newNodeInfo.IPv4CIDR.String()).Info("newNodeInfo.IPv4CIDR")
 				myNewIPv4CIDR = newNodeInfo.IPv4CIDR
 				myNewIPv4CIDRKnown = true
 
