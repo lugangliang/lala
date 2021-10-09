@@ -496,9 +496,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 	if update.Value != nil {
 
 		node := update.Value.(*apiv3.Node)
-		logrus.Debugf("node updata value: %v", node)
 
-			if node.Spec.BGP != nil && node.Spec.BGP.IPv6Address != "" {
+		if node.Spec.BGP != nil && node.Spec.BGP.IPv6Address != "" {
 				isIPv6 = true
 				bgp := node.Spec.BGP
 				// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
@@ -507,18 +506,23 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				if err != nil {
 					logrus.WithError(err).Panic("Failed to parse already-validated IP address")
 				}
+			   logrus.WithField("node bgp ipv6 address", ipv6).Info("newNodeInfo ")
+				logrus.WithField("node bgp ipv6 cidr", caliNodeCIDR).Info("newNodeInfo ")
 				nodeInfo = &l3rrNodeInfo{
 					IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
 					IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
 				}
 			} else {
 				ipv6, caliNodeCIDR := cresources.FindNodeAddress(node, apiv3.InternalIP)
+
 				if ipv6 == nil {
 					ipv6, caliNodeCIDR = cresources.FindNodeAddress(node, apiv3.ExternalIP)
 				}
 
 				if ipv6 != nil && caliNodeCIDR != nil {
 					isIPv6 = true
+					logrus.WithField("node ipv6 address", ipv6).Info("newNodeInfo ")
+					logrus.WithField("node ipv6 cidr", caliNodeCIDR).Info("newNodeInfo ")
 					nodeInfo = &l3rrNodeInfo{
 						IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
 						IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
@@ -535,6 +539,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				if err != nil {
 					logrus.WithError(err).Panic("Failed to parse already-validated IP address")
 				}
+				logrus.WithField("node bgp ipv4 address", ipv4).Info("newNodeInfo ")
+				logrus.WithField("node bgp ipv4 cidp", caliNodeCIDR).Info("newNodeInfo ")
 				nodeInfo = &l3rrNodeInfo{
 					IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
 					IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
@@ -546,6 +552,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				}
 
 				if ipv4 != nil && caliNodeCIDR != nil {
+					logrus.WithField("node  ipv4 address", ipv4).Info("newNodeInfo ")
+					logrus.WithField("node  ipv4 cidr", caliNodeCIDR).Info("newNodeInfo ")
 					isIPv4 = true
 					nodeInfo = &l3rrNodeInfo{
 						IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
@@ -566,10 +574,12 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 
 			if node.Spec.IPv4VXLANTunnelAddr != "" {
 				nodeInfo.VXLANIPv4Addr = ip.FromString(node.Spec.IPv4VXLANTunnelAddr)
+				logrus.WithField("IPv4VXLANTunnelAddr ", nodeInfo.VXLANIPv4Addr).Info("newNodeInfo :")
 			}
 
 			if node.Spec.IPv6VXLANTunnelAddr != "" {
 				nodeInfo.VXLANAddr = ip.FromString(node.Spec.IPv6VXLANTunnelAddr)
+				logrus.WithField("IPv6VXLANTunnelAddr ", nodeInfo.VXLANAddr).Info("newNodeInfo :")
 			}
 
 			for _, a := range node.Spec.Addresses {
