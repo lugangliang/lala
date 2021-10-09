@@ -754,7 +754,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 	if myNewIPv4CIDRKnown {
 		c.markAllNodeIPv4RoutesDirty(nodeName)
 	}
-	if myNewIPv4CIDRKnown {
+	if myNewIPv6CIDRKnown {
 		c.markAllNodeRoutesDirty(nodeName)
 	}
 
