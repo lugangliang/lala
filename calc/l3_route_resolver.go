@@ -681,6 +681,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 							c.trie.MarkCIDRDirty(r.dst)
 						}
 					})
+					logrus.Info("visitAllRoutes execute success")
 				}
 			}
 
