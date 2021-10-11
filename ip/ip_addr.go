@@ -249,8 +249,7 @@ func CIDRFromIPNet(ipNet *net.IPNet) CIDR {
 	ones, _ := ipNet.Mask.Size()
 	// Mask the IP before creating the CIDR so that we have it in canonical format.
 	ip := FromNetIP(ipNet.IP.Mask(ipNet.Mask))
-	log.WithField("ip", ip.String()).Info("CIDRFromIPNet: ")
-	log.WithField("prefix", uint8(ones)).Info("CIDRFromIPNet: ")
+
 
 	if ip.Version() == 4 {
 		return V4CIDR{
@@ -258,6 +257,8 @@ func CIDRFromIPNet(ipNet *net.IPNet) CIDR {
 			prefix: uint8(ones),
 		}
 	} else {
+		log.WithField("ip", ip.(V6Addr).String()).Info("CIDRFromIPNet to IPv6: ")
+		log.WithField("prefix", uint8(ones)).Info("CIDRFromIPNet to IPv6: ")
 		return V6CIDR{
 			addr:   ip.(V6Addr),
 			prefix: uint8(ones),
