@@ -249,7 +249,7 @@ func CIDRFromIPNet(ipNet *net.IPNet) CIDR {
 	ones, _ := ipNet.Mask.Size()
 	// Mask the IP before creating the CIDR so that we have it in canonical format.
 	ip := FromNetIP(ipNet.IP.Mask(ipNet.Mask))
-
+	log.WithField("ip", ip.String()).Info("CIDRFromIPNet before type transform : ")
 
 	if ip.Version() == 4 {
 		return V4CIDR{
