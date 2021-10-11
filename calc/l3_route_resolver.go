@@ -508,10 +508,12 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				}
 				logrus.WithField("node bgp ipv6 address", ipv6).Info("newNodeInfo ")
 				logrus.WithField("node bgp ipv6 cidr", caliNodeCIDR).Info("newNodeInfo ")
-				nodeInfo = &l3rrNodeInfo{
-					IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
-					IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
-				}
+				//nodeInfo = &l3rrNodeInfo{
+				//	IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
+				//	IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
+				//}
+				nodeInfo.IPv6Addr = ip.FromCalicoIP(*ipv6).(ip.V6Addr)
+				nodeInfo.IPv6CIDR = ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR)
 			} else {
 				ipv6, caliNodeCIDR := cresources.FindNodeAddress(node, apiv3.InternalIP)
 
@@ -523,10 +525,12 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 					isIPv6 = true
 					logrus.WithField("node ipv6 address", ipv6).Info("newNodeInfo ")
 					logrus.WithField("node ipv6 cidr", caliNodeCIDR).Info("newNodeInfo ")
-					nodeInfo = &l3rrNodeInfo{
-						IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
-						IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
-					}
+					//nodeInfo = &l3rrNodeInfo{
+					//	IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
+					//	IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
+					//}
+					nodeInfo.IPv6Addr = ip.FromCalicoIP(*ipv6).(ip.V6Addr)
+					nodeInfo.IPv6CIDR = ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR)
 				}
 			}
 
@@ -541,10 +545,12 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				}
 				logrus.WithField("node bgp ipv4 address", ipv4).Info("newNodeInfo ")
 				logrus.WithField("node bgp ipv4 cidp", caliNodeCIDR).Info("newNodeInfo ")
-				nodeInfo = &l3rrNodeInfo{
-					IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
-					IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
-				}
+				//nodeInfo = &l3rrNodeInfo{
+				//	IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
+				//	IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
+				//}
+				nodeInfo.IPv4Addr = ip.FromCalicoIP(*ipv4).(ip.V4Addr)
+				nodeInfo.IPv4CIDR = ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR)
 			} else {
 				ipv4, caliNodeCIDR := cresources.FindNodeIPv4Address(node, apiv3.InternalIP)
 				if ipv4 == nil {
@@ -555,10 +561,12 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 					logrus.WithField("node  ipv4 address", ipv4).Info("newNodeInfo ")
 					logrus.WithField("node  ipv4 cidr", caliNodeCIDR).Info("newNodeInfo ")
 					isIPv4 = true
-					nodeInfo = &l3rrNodeInfo{
-						IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
-						IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
-					}
+					//nodeInfo = &l3rrNodeInfo{
+					//	IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
+					//	IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR),
+					//}
+					nodeInfo.IPv4Addr = ip.FromCalicoIP(*ipv4).(ip.V4Addr)
+					nodeInfo.IPv4CIDR = ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V4CIDR)
 				}
 			}
 
