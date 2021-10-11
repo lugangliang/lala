@@ -523,7 +523,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				nodeInfo = &l3rrNodeInfo{
 					IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
 					IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
-					IPv4Addr: ip.FromCalicoIP(*ipv6).(ip.V4Addr),
+					IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
 					IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeIPv4CIDR).(ip.V4CIDR),
 				}
 
@@ -546,7 +546,7 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 					nodeInfo = &l3rrNodeInfo{
 						IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
 						IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
-						IPv4Addr: ip.FromCalicoIP(*ipv6).(ip.V4Addr),
+						IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
 						IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeIPv4CIDR).(ip.V4CIDR),
 					}
 				}
