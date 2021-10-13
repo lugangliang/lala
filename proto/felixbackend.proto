@@ -527,11 +527,12 @@ message RouteRemove {
 
 message VXLANTunnelEndpointUpdate {
   string node = 1;
-  string mac = 2;
-  string ipv4_addr = 3;
-  string ipv6_addr = 4;
-  string parent_device_ipv4 = 5;
-  string parent_device_ipv6 = 6;
+  string macv4 = 2;
+  string macv6 = 3;
+  string ipv4_addr = 4;
+  string ipv6_addr = 5;
+  string parent_device_ipv4 = 6;
+  string parent_device_ipv6 = 7;
 
 }
 
