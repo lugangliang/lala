@@ -432,14 +432,14 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 	dp.ipSets = append(dp.ipSets, ipSetsV4)
 
 	if config.RulesConfig.VXLANEnabled {
-		routeTableVXLAN := routetable.New([]string{"^vxlan.calico$"}, 4, true, config.NetlinkTimeout,
+		routeTableVXLAN := routetable.New([]string{"^vxlan.calicoV4$"}, 4, true, config.NetlinkTimeout,
 			config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
 			dp.loopSummarizer)
 
 		vxlanManagerV4 := newVXLANManager(
 			ipSetsV4,
 			routeTableVXLAN,
-			"vxlan.calico",
+			"vxlan.calicoV4",
 			config,
 			dp.loopSummarizer,
 		)
@@ -797,14 +797,14 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 			dp.loopSummarizer)
 
 		if config.RulesConfig.VXLANEnabled {
-			routeTableVXLAN := routetable.New([]string{"^vxlan.calico$"}, 6, true, config.NetlinkTimeout,
+			routeTableVXLAN := routetable.New([]string{"^vxlan.calicoV6$"}, 6, true, config.NetlinkTimeout,
 				config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
 				dp.loopSummarizer)
 
 			vxlanManagerV6 := newVXLANManager(
 				ipSetsV6,
 				routeTableVXLAN,
-				"vxlan.calico",
+				"vxlan.calicoV6",
 				config,
 				dp.loopSummarizer,
 			)
