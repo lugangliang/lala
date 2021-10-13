@@ -60,7 +60,8 @@ type VXLANResolver struct {
 	nodeNameToIPv4Addr            map[string]string
 	nodeNameToIPv6Addr            map[string]string
 	nodeNameToNode                map[string]*apiv3.Node
-	nodeNameToVXLANMac            map[string]string
+	nodeNameToVXLANMacV4          map[string]string
+	nodeNameToVXLANMacV6          map[string]string
 	blockToRoutes                 map[string]set.Set
 	vxlanPools                    map[string]model.IPPool
 	useNodeResourceUpdates        bool
@@ -75,7 +76,8 @@ func NewVXLANResolver(hostname string, callbacks vxlanCallbacks, useNodeResource
 		nodeNameToIPv4Addr:            map[string]string{},
 		nodeNameToIPv6Addr:            map[string]string{},
 		nodeNameToNode:                map[string]*apiv3.Node{},
-		nodeNameToVXLANMac:            map[string]string{},
+		nodeNameToVXLANMacV4:          map[string]string{},
+		nodeNameToVXLANMacV6:          map[string]string{},
 		blockToRoutes:                 map[string]set.Set{},
 		vxlanPools:                    map[string]model.IPPool{},
 		useNodeResourceUpdates:        useNodeResourceUpdates,
@@ -267,7 +269,7 @@ func (c *VXLANResolver) OnHostConfigUpdate(update api.Update) (_ bool) {
 			delete(c.nodeNameToVXLANTunnelIPv6Addr, nodeName)
 			c.sendVTEPRemove(nodeName)
 		}
-	case "VXLANTunnelMACAddr":
+	case "VXLANTunnelMACV4Addr":
 		nodeName := update.Key.(model.HostConfigKey).Hostname
 		vtepSentV4 := c.vtepSentV4(nodeName)
 		vtepSentV6 := c.vtepSentV6(nodeName)
@@ -276,9 +278,9 @@ func (c *VXLANResolver) OnHostConfigUpdate(update api.Update) (_ bool) {
 		if update.Value != nil {
 			// Update for a VXLAN tunnel MAC address.
 			newMAC := update.Value.(string)
-			currMAC := c.vtepMACForHost(nodeName)
+			currMAC := c.vtepMACV4ForHost(nodeName)
 			logCxt = logCxt.WithFields(logrus.Fields{"newMAC": newMAC, "currMAC": currMAC})
-			c.nodeNameToVXLANMac[nodeName] = newMAC
+			c.nodeNameToVXLANMacV4[nodeName] = newMAC
 			if vtepSentV4 && vtepSentV6 {
 				if currMAC == newMAC {
 					// If we've already handled this node, there's nothing to do. Deduplicate.
@@ -292,7 +294,35 @@ func (c *VXLANResolver) OnHostConfigUpdate(update api.Update) (_ bool) {
 
 		} else {
 			logCxt.Info("Update the VTEP with the system generated MAC address and send it to dataplane")
-			delete(c.nodeNameToVXLANMac, nodeName)
+			delete(c.nodeNameToVXLANMacV4, nodeName)
+			c.sendVTEPUpdate(nodeName)
+		}
+
+	case "VXLANTunnelMACV6Addr":
+		nodeName := update.Key.(model.HostConfigKey).Hostname
+		vtepSentV6 := c.vtepSentV6(nodeName)
+		logCxt := logrus.WithField("node", nodeName).WithField("value", update.Value)
+		logCxt.Debug("VXLANTunnelMACAddr update")
+		if update.Value != nil {
+			// Update for a VXLAN tunnel MAC address.
+			newMAC := update.Value.(string)
+			currMAC := c.vtepMACV6ForHost(nodeName)
+			logCxt = logCxt.WithFields(logrus.Fields{"newMAC": newMAC, "currMAC": currMAC})
+			c.nodeNameToVXLANMacV6[nodeName] = newMAC
+			if vtepSentV6 {
+				if currMAC == newMAC {
+					// If we've already handled this node, there's nothing to do. Deduplicate.
+					logCxt.Debug("Skipping duplicate tunnel MAC addr update")
+					return
+				}
+
+				// Try sending a VTEP update.
+				c.sendVTEPUpdate(nodeName)
+			}
+
+		} else {
+			logCxt.Info("Update the VTEP with the system generated MAC address and send it to dataplane")
+			delete(c.nodeNameToVXLANMacV6, nodeName)
 			c.sendVTEPUpdate(nodeName)
 		}
 	}
@@ -356,7 +386,8 @@ func (c *VXLANResolver) sendVTEPUpdate(node string) bool {
 		Node:             node,
 		ParentDeviceIpv4: parentDeviceIPv4,
 		ParentDeviceIpv6: parentDeviceIPv6,
-		Mac:              c.vtepMACForHost(node),
+		Macv4:            c.vtepMACV4ForHost(node),
+		Macv6:            c.vtepMACV6ForHost(node),
 		Ipv4Addr:         tunlIPv4Addr,
 		Ipv6Addr:         tunlIPv6Addr,
 	}
@@ -373,8 +404,25 @@ func (c *VXLANResolver) sendVTEPRemove(node string) {
 // If new MAC is present in host config, then vtepMACForHost returns the MAC present in  host config else
 // vtepMACForHost calculates a deterministic MAC address based on the provided host.
 // The returned address matches the address assigned to the VXLAN device on that node.
-func (c *VXLANResolver) vtepMACForHost(nodename string) string {
-	mac := c.nodeNameToVXLANMac[nodename]
+func (c *VXLANResolver) vtepMACV4ForHost(nodename string) string {
+	mac := c.nodeNameToVXLANMacV4[nodename]
+
+	if mac != "" {
+		return mac
+	}
+
+	hasher := sha1.New()
+	_, err := hasher.Write([]byte(nodename))
+	if err != nil {
+		logrus.WithError(err).WithField("node", nodename).Panic("Failed to write hash for node")
+	}
+	sha := hasher.Sum(nil)
+	hw := gonet.HardwareAddr(append([]byte("f"), sha[0:5]...))
+	return hw.String()
+}
+
+func (c *VXLANResolver) vtepMACV6ForHost(nodename string) string {
+	mac := c.nodeNameToVXLANMacV6[nodename]
 
 	if mac != "" {
 		return mac

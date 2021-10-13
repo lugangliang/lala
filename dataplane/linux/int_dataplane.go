@@ -801,7 +801,7 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 				config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
 				dp.loopSummarizer)
 
-			vxlanManagerV6 := newVXLANManager(
+			vxlanManagerV6 := newVXLANV6Manager(
 				ipSetsV6,
 				routeTableVXLAN,
 				"vxlan.calicoV6",

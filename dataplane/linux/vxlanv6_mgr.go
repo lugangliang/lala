@@ -38,19 +38,19 @@ import (
 )
 
 // added so that we can shim netlink for tests
-type netlinkHandle interface {
-	LinkByName(name string) (netlink.Link, error)
-	LinkSetMTU(link netlink.Link, mtu int) error
-	LinkSetUp(link netlink.Link) error
-	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
-	AddrAdd(link netlink.Link, addr *netlink.Addr) error
-	AddrDel(link netlink.Link, addr *netlink.Addr) error
-	LinkList() ([]netlink.Link, error)
-	LinkAdd(netlink.Link) error
-	LinkDel(netlink.Link) error
-}
+//type netlinkHandle interface {
+//	LinkByName(name string) (netlink.Link, error)
+//	LinkSetMTU(link netlink.Link, mtu int) error
+//	LinkSetUp(link netlink.Link) error
+//	AddrList(link netlink.Link, family int) ([]netlink.Addr, error)
+//	AddrAdd(link netlink.Link, addr *netlink.Addr) error
+//	AddrDel(link netlink.Link, addr *netlink.Addr) error
+//	LinkList() ([]netlink.Link, error)
+//	LinkAdd(netlink.Link) error
+//	LinkDel(netlink.Link) error
+//}
 
-type vxlanManager struct {
+type vxlanV6Manager struct {
 	sync.Mutex
 
 	// Our dependencies.
@@ -84,16 +84,16 @@ type vxlanManager struct {
 		deviceRouteSourceAddress net.IP, deviceRouteProtocol int, removeExternalRoutes bool) routeTable
 }
 
-func newVXLANManager(
+func newVXLANV6Manager(
 	ipsetsDataplane ipsetsDataplane,
 	rt routeTable,
 	deviceName string,
 	dpConfig Config,
 	opRecorder logutils.OpRecorder,
-) *vxlanManager {
+) *vxlanV6Manager {
 	nlHandle, _ := netlink.NewHandle()
 
-	return newVXLANManagerWithShims(
+	return newVXLANV6ManagerWithShims(
 		ipsetsDataplane,
 		rt,
 		deviceName,
@@ -108,7 +108,7 @@ func newVXLANManager(
 	)
 }
 
-func newVXLANManagerWithShims(
+func newVXLANV6ManagerWithShims(
 	ipsetsDataplane ipsetsDataplane,
 	rt routeTable,
 	deviceName string,
@@ -116,12 +116,12 @@ func newVXLANManagerWithShims(
 	nlHandle netlinkHandle,
 	noEncapRTConstruct func(interfacePrefixes []string, ipVersion uint8, vxlan bool, netlinkTimeout time.Duration,
 		deviceRouteSourceAddress net.IP, deviceRouteProtocol int, removeExternalRoutes bool) routeTable,
-) *vxlanManager {
+) *vxlanV6Manager {
 	noEncapProtocol := 80
 	if dpConfig.DeviceRouteProtocol != syscall.RTPROT_BOOT {
 		noEncapProtocol = dpConfig.DeviceRouteProtocol
 	}
-	return &vxlanManager{
+	return &vxlanV6Manager{
 		ipsetsDataplane: ipsetsDataplane,
 		ipSetMetadata: ipsets.IPSetMetadata{
 			MaxSize: dpConfig.MaxIPSetSize,
@@ -145,7 +145,7 @@ func newVXLANManagerWithShims(
 	}
 }
 
-func (m *vxlanManager) OnUpdate(protoBufMsg interface{}) {
+func (m *vxlanV6Manager) OnUpdate(protoBufMsg interface{}) {
 	switch msg := protoBufMsg.(type) {
 	case *proto.RouteUpdate:
 		// In case the route changes type to one we no longer care about...
@@ -179,7 +179,7 @@ func (m *vxlanManager) OnUpdate(protoBufMsg interface{}) {
 	}
 }
 
-func (m *vxlanManager) deleteRoute(dst string) {
+func (m *vxlanV6Manager) deleteRoute(dst string) {
 	_, exists := m.routesByDest[dst]
 	if exists {
 		// In case the route changes type to one we no longer care about...
@@ -188,37 +188,37 @@ func (m *vxlanManager) deleteRoute(dst string) {
 	}
 }
 
-func (m *vxlanManager) setLocalVTEP(vtep *proto.VXLANTunnelEndpointUpdate) {
+func (m *vxlanV6Manager) setLocalVTEP(vtep *proto.VXLANTunnelEndpointUpdate) {
 	m.Lock()
 	defer m.Unlock()
 	m.myVTEP = vtep
 }
 
-func (m *vxlanManager) getLocalVTEP() *proto.VXLANTunnelEndpointUpdate {
+func (m *vxlanV6Manager) getLocalVTEP() *proto.VXLANTunnelEndpointUpdate {
 	m.Lock()
 	defer m.Unlock()
 	return m.myVTEP
 }
 
-func (m *vxlanManager) getLocalVTEPParent() (netlink.Link, error) {
+func (m *vxlanV6Manager) getLocalVTEPParent() (netlink.Link, error) {
 	return m.getParentInterface(m.getLocalVTEP())
 }
 
-func (m *vxlanManager) getNoEncapRouteTable() routeTable {
+func (m *vxlanV6Manager) getNoEncapRouteTable() routeTable {
 	m.Lock()
 	defer m.Unlock()
 
 	return m.noEncapRouteTable
 }
 
-func (m *vxlanManager) setNoEncapRouteTable(rt routeTable) {
+func (m *vxlanV6Manager) setNoEncapRouteTable(rt routeTable) {
 	m.Lock()
 	defer m.Unlock()
 
 	m.noEncapRouteTable = rt
 }
 
-func (m *vxlanManager) GetRouteTableSyncers() []routeTableSyncer {
+func (m *vxlanV6Manager) GetRouteTableSyncers() []routeTableSyncer {
 	rts := []routeTableSyncer{m.routeTable}
 
 	noEncapRouteTable := m.getNoEncapRouteTable()
@@ -229,7 +229,7 @@ func (m *vxlanManager) GetRouteTableSyncers() []routeTableSyncer {
 	return rts
 }
 
-func (m *vxlanManager) CompleteDeferredWork() error {
+func (m *vxlanV6Manager) CompleteDeferredWork() error {
 	if !m.routesDirty {
 		logrus.Debug("No change since last application, nothing to do")
 		return nil
@@ -246,20 +246,20 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 		// known VTEPs.
 		var l2routes []routetable.L2Target
 		for _, u := range m.vtepsByNode {
-			macV4, err := net.ParseMAC(u.Macv4)
-
+			macV6, err := net.ParseMAC(u.Macv4)
 			if err != nil {
 				// Don't block programming of other VTEPs if somehow we receive one with a bad mac.
 				logrus.WithError(err).Warn("Failed to parse VTEP mac address")
 				continue
 			}
-			if u.Ipv4Addr != "" && u.ParentDeviceIpv4 != "" {
+
+			if u.Ipv6Addr != "" && u.ParentDeviceIpv6 != "" {
 				l2routes = append(l2routes, routetable.L2Target{
-					VTEPMAC: macV4,
-					GW:      ip.FromString(u.Ipv4Addr),
-					IP:      ip.FromString(u.ParentDeviceIpv4),
+					VTEPMAC: macV6,
+					GW:      ip.FromString(u.Ipv6Addr),
+					IP:      ip.FromString(u.ParentDeviceIpv6),
 				})
-				allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIpv4)
+				allowedVXLANSources = append(allowedVXLANSources, u.ParentDeviceIpv6)
 			}
 
 		}
@@ -304,15 +304,7 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 					logCtx.Debug("Dataplane has route with no corresponding VTEP")
 					continue
 				}
-				if vtep.Ipv4Addr != "" && vtep.ParentDeviceIpv4 != "" {
-					vxlanRoute := routetable.Target{
-						Type: routetable.TargetTypeVXLAN,
-						CIDR: cidr,
-						GW:   ip.FromString(vtep.Ipv4Addr),
-					}
-					vxlanRoutes = append(vxlanRoutes, vxlanRoute)
-					logCtx.WithField("route", vxlanRoute).Debug("adding vxlan route to list for addition")
-				}
+
 				if vtep.Ipv6Addr != "" && vtep.ParentDeviceIpv6 != "" {
 					vxlanRoute := routetable.Target{
 						Type: routetable.TargetTypeVXLAN,
@@ -353,7 +345,7 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 
 // KeepVXLANDeviceInSync is a goroutine that configures the VXLAN tunnel device, then periodically
 // checks that it is still correctly configured.
-func (m *vxlanManager) KeepVXLANDeviceInSync(mtu int, xsumBroken bool, wait time.Duration) {
+func (m *vxlanV6Manager) KeepVXLANDeviceInSync(mtu int, xsumBroken bool, wait time.Duration) {
 	logrus.WithFields(logrus.Fields{
 		"mtu":        mtu,
 		"xsumBroken": xsumBroken,
@@ -374,9 +366,9 @@ func (m *vxlanManager) KeepVXLANDeviceInSync(mtu int, xsumBroken bool, wait time
 			continue
 		} else {
 			if m.getNoEncapRouteTable() == nil {
-				noEncapV4RouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 4, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceAddress,
+				noEncapV6RouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 6, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceAddress,
 					m.noEncapProtocol, false)
-				m.setNoEncapRouteTable(noEncapV4RouteTable)
+				m.setNoEncapRouteTable(noEncapV6RouteTable)
 			}
 		}
 
@@ -398,7 +390,7 @@ func (m *vxlanManager) KeepVXLANDeviceInSync(mtu int, xsumBroken bool, wait time
 
 // getParentInterface returns the parent interface for the given local VTEP based on IP address. This link returned is nil
 // if, and only if, an error occurred
-func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUpdate) (netlink.Link, error) {
+func (m *vxlanV6Manager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUpdate) (netlink.Link, error) {
 	links, err := m.nlHandle.LinkList()
 	if err != nil {
 		return nil, err
@@ -409,7 +401,7 @@ func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUp
 			return nil, err
 		}
 		for _, addr := range addrs {
-			if addr.IPNet.IP.String() == localVTEP.ParentDeviceIpv4 {
+			if addr.IPNet.IP.String() == localVTEP.ParentDeviceIpv6 {
 				logrus.Debugf("Found parent interface: %s", link)
 				return link, nil
 			}
@@ -419,21 +411,21 @@ func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUp
 }
 
 // configureVXLANDevice ensures the VXLAN tunnel device is up and configured correctly.
-func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunnelEndpointUpdate, xsumBroken bool) error {
+func (m *vxlanV6Manager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunnelEndpointUpdate, xsumBroken bool) error {
 	logCxt := logrus.WithFields(logrus.Fields{"device": m.vxlanDevice})
 	logCxt.Debug("Configuring VXLAN tunnel device")
 	parent, err := m.getParentInterface(localVTEP)
 	if err != nil {
 		return err
 	}
-	macV4, err := net.ParseMAC(localVTEP.Macv4)
+	macV6, err := net.ParseMAC(localVTEP.Macv6)
 	if err != nil {
 		return err
 	}
 	vxlan := &netlink.Vxlan{
 		LinkAttrs: netlink.LinkAttrs{
 			Name:         m.vxlanDevice,
-			HardwareAddr: macV4,
+			HardwareAddr: macV6,
 		},
 		VxlanId:      m.vxlanID,
 		Port:         m.vxlanPort,
@@ -497,6 +489,9 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 		return fmt.Errorf("failed to ensure address of interface: %s", err)
 	}
 	// Make sure the IPv6 address is configured.
+	if err := m.ensureV6AddressOnLink(localVTEP.Ipv6Addr, link); err != nil {
+		return fmt.Errorf("failed to ensure address of interface: %s", err)
+	}
 
 	// If required, disable checksum offload.
 	if xsumBroken {
@@ -515,7 +510,7 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 
 // ensureV4AddressOnLink ensures that the provided IPv4 address is configured on the provided Link. If there are other addresses,
 // this function will remove them, ensuring that the desired IPv4 address is the _only_ address on the Link.
-func (m *vxlanManager) ensureV4AddressOnLink(ipStr string, link netlink.Link) error {
+func (m *vxlanV6Manager) ensureV4AddressOnLink(ipStr string, link netlink.Link) error {
 	_, net, err := net.ParseCIDR(ipStr + "/32")
 	if err != nil {
 		return err
@@ -549,9 +544,45 @@ func (m *vxlanManager) ensureV4AddressOnLink(ipStr string, link netlink.Link) er
 	return nil
 }
 
+// ensureV6AddressOnLink ensures that the provided IPv6 address is configured on the provided Link. If there are other addresses,
+// this function will remove them, ensuring that the desired IPv6 address is the _only_ address on the Link.
+func (m *vxlanV6Manager) ensureV6AddressOnLink(ipStr string, link netlink.Link) error {
+	_, net, err := net.ParseCIDR(ipStr + "/128")
+	if err != nil {
+		return err
+	}
+	addr := netlink.Addr{IPNet: net}
+	existingAddrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V6)
+	if err != nil {
+		return err
+	}
+
+	// Remove any addresses which we don't want.
+	addrPresent := false
+	for _, existing := range existingAddrs {
+		if reflect.DeepEqual(existing.IPNet, addr.IPNet) {
+			addrPresent = true
+			continue
+		}
+		logrus.WithFields(logrus.Fields{"address": existing, "link": link.Attrs().Name}).Warn("Removing unwanted IP from VXLAN device")
+		if err := m.nlHandle.AddrDel(link, &existing); err != nil {
+			return fmt.Errorf("failed to remove IP address %s", existing)
+		}
+	}
+
+	// Actually add the desired address to the interface if needed.
+	if !addrPresent {
+		logrus.WithFields(logrus.Fields{"address": addr}).Info("Assigning address to VXLAN device")
+		if err := m.nlHandle.AddrAdd(link, &addr); err != nil {
+			return fmt.Errorf("failed to add IP address")
+		}
+	}
+	return nil
+}
+
 // vlanLinksIncompat takes two vxlan devices and compares them to make sure they match. If they do not match,
 // this function will return a mesasge indicating which configuration is mismatched.
-func vxlanLinksIncompat(l1, l2 netlink.Link) string {
+func vxlanLinksIncompatV6(l1, l2 netlink.Link) string {
 	if l1.Type() != l2.Type() {
 		return fmt.Sprintf("link type: %v vs %v", l1.Type(), l2.Type())
 	}
