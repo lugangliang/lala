@@ -404,7 +404,7 @@ func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUp
 		return nil, err
 	}
 	for _, link := range links {
-		addrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V6)
+		addrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V4)
 		if err != nil {
 			return nil, err
 		}
