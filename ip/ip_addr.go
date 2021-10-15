@@ -154,7 +154,9 @@ func (c V4CIDR) ToIPNet() net.IPNet {
 
 func (c V4CIDR) Contains(addr Addr) bool {
 	a32 := c.addr.AsUint32()
-	b32 := binary.BigEndian.Uint32(net.ParseIP(addr.String()))
+	baddr := addr.(V4Addr)
+	//b32 := binary.BigEndian.Uint32(net.ParseIP(addr.String()))
+	b32 := binary.BigEndian.Uint32(baddr[:])
 	xored := a32 ^ b32 // Has a zero bit wherever the two values are the same.
 	commonPrefixLen := uint8(bits.LeadingZeros32(xored))
 	return commonPrefixLen >= c.prefix
