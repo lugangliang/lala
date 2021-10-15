@@ -188,6 +188,7 @@ func NewL3RouteResolver(hostname string, callbacks PipelineCallbacks, useNodeRes
 		useNodeResourceUpdates: useNodeResourceUpdates,
 		routeSource:            routeSource,
 		nodeRoutes:             newNodeRoutes(),
+		nodeIPv4Routes: 		newNodeIPv4Routes(),
 	}
 }
 
