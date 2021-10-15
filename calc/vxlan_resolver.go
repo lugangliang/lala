@@ -272,7 +272,6 @@ func (c *VXLANResolver) OnHostConfigUpdate(update api.Update) (_ bool) {
 	case "VXLANTunnelMACV4Addr":
 		nodeName := update.Key.(model.HostConfigKey).Hostname
 		vtepSentV4 := c.vtepSentV4(nodeName)
-		vtepSentV6 := c.vtepSentV6(nodeName)
 		logCxt := logrus.WithField("node", nodeName).WithField("value", update.Value)
 		logCxt.Debug("VXLANTunnelMACAddr update")
 		if update.Value != nil {
@@ -281,7 +280,7 @@ func (c *VXLANResolver) OnHostConfigUpdate(update api.Update) (_ bool) {
 			currMAC := c.vtepMACV4ForHost(nodeName)
 			logCxt = logCxt.WithFields(logrus.Fields{"newMAC": newMAC, "currMAC": currMAC})
 			c.nodeNameToVXLANMacV4[nodeName] = newMAC
-			if vtepSentV4 && vtepSentV6 {
+			if vtepSentV4 {
 				if currMAC == newMAC {
 					// If we've already handled this node, there's nothing to do. Deduplicate.
 					logCxt.Debug("Skipping duplicate tunnel MAC addr update")
