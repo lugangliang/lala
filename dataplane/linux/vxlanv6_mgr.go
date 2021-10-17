@@ -246,7 +246,7 @@ func (m *vxlanV6Manager) CompleteDeferredWork() error {
 		// known VTEPs.
 		var l2routes []routetable.L2Target
 		for _, u := range m.vtepsByNode {
-			macV6, err := net.ParseMAC(u.Macv4)
+			macV6, err := net.ParseMAC(u.Macv6)
 			if err != nil {
 				// Don't block programming of other VTEPs if somehow we receive one with a bad mac.
 				logrus.WithError(err).Warn("Failed to parse VTEP mac address")
@@ -484,10 +484,6 @@ func (m *vxlanV6Manager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTun
 		}
 	}
 
-	// Make sure the IPv4 address is configured.
-	if err := m.ensureV4AddressOnLink(localVTEP.Ipv4Addr, link); err != nil {
-		return fmt.Errorf("failed to ensure address of interface: %s", err)
-	}
 	// Make sure the IPv6 address is configured.
 	if err := m.ensureV6AddressOnLink(localVTEP.Ipv6Addr, link); err != nil {
 		return fmt.Errorf("failed to ensure address of interface: %s", err)
@@ -505,42 +501,6 @@ func (m *vxlanV6Manager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTun
 		return fmt.Errorf("failed to set interface up: %s", err)
 	}
 
-	return nil
-}
-
-// ensureV4AddressOnLink ensures that the provided IPv4 address is configured on the provided Link. If there are other addresses,
-// this function will remove them, ensuring that the desired IPv4 address is the _only_ address on the Link.
-func (m *vxlanV6Manager) ensureV4AddressOnLink(ipStr string, link netlink.Link) error {
-	_, net, err := net.ParseCIDR(ipStr + "/32")
-	if err != nil {
-		return err
-	}
-	addr := netlink.Addr{IPNet: net}
-	existingAddrs, err := m.nlHandle.AddrList(link, netlink.FAMILY_V4)
-	if err != nil {
-		return err
-	}
-
-	// Remove any addresses which we don't want.
-	addrPresent := false
-	for _, existing := range existingAddrs {
-		if reflect.DeepEqual(existing.IPNet, addr.IPNet) {
-			addrPresent = true
-			continue
-		}
-		logrus.WithFields(logrus.Fields{"address": existing, "link": link.Attrs().Name}).Warn("Removing unwanted IPv4 address from VXLAN device")
-		if err := m.nlHandle.AddrDel(link, &existing); err != nil {
-			return fmt.Errorf("failed to remove IP address %s", existing)
-		}
-	}
-
-	// Actually add the desired address to the interface if needed.
-	if !addrPresent {
-		logrus.WithFields(logrus.Fields{"address": addr}).Info("Assigning IPv4 address to VXLAN device")
-		if err := m.nlHandle.AddrAdd(link, &addr); err != nil {
-			return fmt.Errorf("failed to add IPv4 address")
-		}
-	}
 	return nil
 }
 

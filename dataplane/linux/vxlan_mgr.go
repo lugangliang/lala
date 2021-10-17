@@ -313,15 +313,7 @@ func (m *vxlanManager) CompleteDeferredWork() error {
 					vxlanRoutes = append(vxlanRoutes, vxlanRoute)
 					logCtx.WithField("route", vxlanRoute).Debug("adding vxlan route to list for addition")
 				}
-				if vtep.Ipv6Addr != "" && vtep.ParentDeviceIpv6 != "" {
-					vxlanRoute := routetable.Target{
-						Type: routetable.TargetTypeVXLAN,
-						CIDR: cidr,
-						GW:   ip.FromString(vtep.Ipv6Addr),
-					}
-					vxlanRoutes = append(vxlanRoutes, vxlanRoute)
-					logCtx.WithField("route", vxlanRoute).Debug("adding vxlan route to list for addition")
-				}
+
 			}
 		}
 
@@ -415,7 +407,7 @@ func (m *vxlanManager) getParentInterface(localVTEP *proto.VXLANTunnelEndpointUp
 			}
 		}
 	}
-	return nil, fmt.Errorf("Unable to find parent interface with address %s", localVTEP.ParentDeviceIpv6)
+	return nil, fmt.Errorf("Unable to find ipv4 parent interface with address %s", localVTEP.ParentDeviceIpv4)
 }
 
 // configureVXLANDevice ensures the VXLAN tunnel device is up and configured correctly.
@@ -438,7 +430,7 @@ func (m *vxlanManager) configureVXLANDevice(mtu int, localVTEP *proto.VXLANTunne
 		VxlanId:      m.vxlanID,
 		Port:         m.vxlanPort,
 		VtepDevIndex: parent.Attrs().Index,
-		SrcAddr:      ip.FromString(localVTEP.ParentDeviceIpv6).AsNetIP(),
+		SrcAddr:      ip.FromString(localVTEP.ParentDeviceIpv4).AsNetIP(),
 	}
 
 	// Try to get the device.
