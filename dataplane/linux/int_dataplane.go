@@ -797,13 +797,13 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 			dp.loopSummarizer)
 
 		if config.RulesConfig.VXLANEnabled {
-			routeTableVXLAN := routetable.New([]string{"^vxlan.calicoV6$"}, 6, true, config.NetlinkTimeout,
-				config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
+			routeTableVXLANV6 := routetable.New([]string{"^vxlan.calicoV6$"}, 6, true, config.NetlinkTimeout,
+				config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 1,
 				dp.loopSummarizer)
 
 			vxlanManagerV6 := newVXLANV6Manager(
 				ipSetsV6,
-				routeTableVXLAN,
+				routeTableVXLANV6,
 				"vxlan.calicoV6",
 				config,
 				dp.loopSummarizer,
