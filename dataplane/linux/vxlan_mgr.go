@@ -148,13 +148,19 @@ func newVXLANManagerWithShims(
 func (m *vxlanManager) OnUpdate(protoBufMsg interface{}) {
 	switch msg := protoBufMsg.(type) {
 	case *proto.RouteUpdate:
-		// In case the route changes type to one we no longer care about...
-		m.deleteRoute(msg.Dst)
+		cidr, err := ip.CIDRFromString(msg.Dst)
+		if err != nil {
+			logrus.WithError(err).Error("Failed to parse VXLAN route destination")
+		}
+		if cidr.Version() == 6 {
+			// In case the route changes type to one we no longer care about...
+			m.deleteRoute(msg.Dst)
 
-		if msg.Type == proto.RouteType_REMOTE_WORKLOAD && msg.IpPoolType == proto.IPPoolType_VXLAN {
-			logrus.WithField("msg", msg).Debug("VXLAN data plane received route update")
-			m.routesByDest[msg.Dst] = msg
-			m.routesDirty = true
+			if msg.Type == proto.RouteType_REMOTE_WORKLOAD && msg.IpPoolType == proto.IPPoolType_VXLAN {
+				logrus.WithField("msg", msg).Debug("VXLAN data plane received route update")
+				m.routesByDest[msg.Dst] = msg
+				m.routesDirty = true
+			}
 		}
 	case *proto.RouteRemove:
 		m.deleteRoute(msg.Dst)
