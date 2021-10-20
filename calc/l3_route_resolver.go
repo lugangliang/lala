@@ -852,7 +852,7 @@ func (c *L3RouteResolver) OnPoolUpdate(update api.Update) (_ bool) {
 	var newPool *model.IPPool
 	if update.Value != nil {
 		newPool = update.Value.(*model.IPPool)
-		if len(newPool.CIDR.IP.To16()) == 0 {
+		if newPool.CIDR.Version() == 4 {
 			isIPv4 = true
 		} else {
 			isIPv6 = true
@@ -905,7 +905,7 @@ func (c *L3RouteResolver) poolTypeForPool(pool *model.IPPool) proto.IPPoolType {
 // v4RoutesFromBlock returns a list of routes which should exist based on the provided
 // allocation block.
 func (c *L3RouteResolver) v6RoutesFromBlock(b *model.AllocationBlock) map[string]nodenameIPv6Route {
-	if len(b.CIDR.IP.To16()) == 0 {
+	if b.CIDR.Version() == 4 {
 		logrus.Debug("Ignoring IPv4 block")
 		return nil
 	}
@@ -938,7 +938,7 @@ func (c *L3RouteResolver) v6RoutesFromBlock(b *model.AllocationBlock) map[string
 }
 
 func (c *L3RouteResolver) v4RoutesFromBlock(b *model.AllocationBlock) map[string]nodenameIPv4Route {
-	if len(b.CIDR.IP.To16()) != 0 {
+	if b.CIDR.Version() == 6 {
 		logrus.Debug("Ignoring IPv6 block")
 		return nil
 	}
