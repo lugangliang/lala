@@ -127,7 +127,8 @@ type Config struct {
 	IptablesBackend                string
 	IPSetsRefreshInterval          time.Duration
 	RouteRefreshInterval           time.Duration
-	DeviceRouteSourceAddress       net.IP
+	DeviceRouteSourceIPv4Address       net.IP
+	DeviceRouteSourceIPv6Address       net.IP
 	DeviceRouteProtocol            int
 	RemoveExternalRoutes           bool
 	IptablesRefreshInterval        time.Duration
@@ -433,7 +434,7 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 
 	if config.RulesConfig.VXLANEnabled {
 		routeTableVXLAN := routetable.New([]string{"^vxlan.calicoV4$"}, 4, true, config.NetlinkTimeout,
-			config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 0,
+			config.DeviceRouteSourceIPv4Address, config.DeviceRouteProtocol, true, 0,
 			dp.loopSummarizer)
 
 		vxlanManagerV4 := newVXLANManager(
@@ -705,7 +706,7 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 	}
 
 	routeTableV4 := routetable.New(interfaceRegexes, 4, false, config.NetlinkTimeout,
-		config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, config.RemoveExternalRoutes, 0,
+		config.DeviceRouteSourceIPv4Address, config.DeviceRouteProtocol, config.RemoveExternalRoutes, 0,
 		dp.loopSummarizer)
 
 	epManager := newEndpointManager(
@@ -793,12 +794,12 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 
 		routeTableV6 := routetable.New(
 			interfaceRegexes, 6, false, config.NetlinkTimeout,
-			config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, config.RemoveExternalRoutes, 0,
+			config.DeviceRouteSourceIPv6Address, config.DeviceRouteProtocol, config.RemoveExternalRoutes, 0,
 			dp.loopSummarizer)
 
 		if config.RulesConfig.VXLANEnabled {
 			routeTableVXLANV6 := routetable.New([]string{"^vxlan.calicoV6$"}, 6, true, config.NetlinkTimeout,
-				config.DeviceRouteSourceAddress, config.DeviceRouteProtocol, true, 1,
+				config.DeviceRouteSourceIPv6Address, config.DeviceRouteProtocol, true, 0,
 				dp.loopSummarizer)
 
 			vxlanManagerV6 := newVXLANV6Manager(
