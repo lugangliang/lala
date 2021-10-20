@@ -211,7 +211,8 @@ type Config struct {
 	VXLANMTU            int    `config:"int;0"`
 	IPv4VXLANTunnelAddr net.IP `config:"ipv4;"`
 	IPv6VXLANTunnelAddr net.IP `config:"ipv6;"`
-	VXLANTunnelMACAddr  string `config:"string;"`
+	VXLANTunnelMACV4Addr  string `config:"string;"`
+	VXLANTunnelMACV6Addr  string `config:"string;"`
 
 	IpInIpEnabled    bool   `config:"bool;false"`
 	IpInIpMtu        int    `config:"int;0"`
