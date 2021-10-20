@@ -809,7 +809,7 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 				config,
 				dp.loopSummarizer,
 			)
-			go vxlanManagerV6.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
+			go vxlanManagerV6.KeepVXLANDeviceInSync(1430, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
 			dp.RegisterManager(vxlanManagerV6)
 		} else {
 			cleanUpVXLANDevice()
