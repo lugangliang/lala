@@ -699,24 +699,32 @@ func (r *DefaultRuleRenderer) filterOutputChain(ipVersion uint8) *Chain {
 		// When VXLAN is enabled, auto-allow VXLAN traffic to other Calico nodes.  Without this,
 		// it's too easy to make a host policy that blocks VXLAN traffic, resulting in very confusing
 		// connectivity problems.
-		rules = append(rules,
-			Rule{
-				Match: Match().ProtocolNum(ProtoUDP).
-					DestPorts(uint16(r.Config.VXLANPort)).
-					SrcAddrType(AddrTypeLocal, false).
-					DestIPSet(r.IPSetConfigV4.NameForMainIPSet(IPSetIDAllVXLANSourceNets)),
-				Action:  r.filterAllowAction,
-				Comment: []string{"Allow VXLAN IPv4 packets to other whitelisted hosts"},
-			},
-			Rule{
-				Match: Match().ProtocolNum(ProtoUDP).
-					DestPorts(uint16(r.Config.VXLANPort)).
-					SrcAddrType(AddrTypeLocal, false).
-					DestIPSet(r.IPSetConfigV6.NameForMainIPSet(IPSetIDAllVXLANSourceNets)),
-				Action:  r.filterAllowAction,
-				Comment: []string{"Allow VXLAN IPv6 packets to other whitelisted hosts"},
-			},
-		)
+		if ipVersion == 4 {
+			rules = append(rules,
+				Rule{
+					Match: Match().ProtocolNum(ProtoUDP).
+						DestPorts(uint16(r.Config.VXLANPort)).
+						SrcAddrType(AddrTypeLocal, false).
+						DestIPSet(r.IPSetConfigV4.NameForMainIPSet(IPSetIDAllVXLANSourceNets)),
+					Action:  r.filterAllowAction,
+					Comment: []string{"Allow VXLAN IPv4 packets to other whitelisted hosts"},
+				},)
+		}
+
+		if ipVersion == 6 {
+			rules = append(rules,
+				Rule{
+					Match: Match().ProtocolNum(ProtoUDP).
+						DestPorts(uint16(r.Config.VXLANPort)).
+						SrcAddrType(AddrTypeLocal, false).
+						DestIPSet(r.IPSetConfigV6.NameForMainIPSet(IPSetIDAllVXLANSourceNets)),
+					Action:  r.filterAllowAction,
+					Comment: []string{"Allow VXLAN IPv6 packets to other whitelisted hosts"},
+				},
+			)
+		}
+
+
 	}
 
 	// TODO(rlb): For wireguard, we add the destination port to the failsafes. We may want to revisit this so that we
