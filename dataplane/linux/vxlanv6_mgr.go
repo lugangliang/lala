@@ -152,7 +152,7 @@ func (m *vxlanV6Manager) OnUpdate(protoBufMsg interface{}) {
 		if err != nil {
 			logrus.WithError(err).Error("Failed to parse VXLAN route destination")
 		}
-		if cidr.Version() == 4 {
+		if cidr.Version() == 6 {
 			// In case the route changes type to one we no longer care about...
 			m.deleteRoute(msg.Dst)
 
