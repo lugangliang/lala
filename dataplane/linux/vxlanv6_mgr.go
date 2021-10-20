@@ -366,7 +366,7 @@ func (m *vxlanV6Manager) KeepVXLANDeviceInSync(mtu int, xsumBroken bool, wait ti
 			continue
 		} else {
 			if m.getNoEncapRouteTable() == nil {
-				noEncapV6RouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 6, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceAddress,
+				noEncapV6RouteTable := m.noEncapRTConstruct([]string{"^" + parent.Attrs().Name + "$"}, 6, false, m.dpConfig.NetlinkTimeout, m.dpConfig.DeviceRouteSourceIPv6Address,
 					m.noEncapProtocol, false)
 				m.setNoEncapRouteTable(noEncapV6RouteTable)
 			}
