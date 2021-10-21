@@ -941,7 +941,7 @@ func (r *RouteTable) syncL2RoutesForLink(ifaceName string) error {
 	}
 
 	// Get the current set of neighbors on this interface.
-	existingNeigh, err := netlink.NeighList(linkAttrs.Index, netlink.FAMILY_V4)
+	existingNeigh, err := netlink.NeighList(linkAttrs.Index, netlink.FAMILY_ALL)
 	if err != nil {
 		return err
 	}
