@@ -314,7 +314,12 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 		}
 		if config.VXLANMTU == 0 {
 			log.Debug("Defaulting VXLAN MTU based on host")
-			config.VXLANMTU = mtu - 50
+			if config.IPv6Enabled == true {
+				config.VXLANMTU = mtu - 70
+			}else {
+				config.VXLANMTU = mtu - 50
+			}
+
 		}
 		if config.Wireguard.MTU == 0 {
 			log.Debug("Defaulting Wireguard MTU based on host")
@@ -809,7 +814,7 @@ func NewIntDataplaneDriver(config Config) *InternalDataplane {
 				config,
 				dp.loopSummarizer,
 			)
-			go vxlanManagerV6.KeepVXLANDeviceInSync(1430, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
+			go vxlanManagerV6.KeepVXLANDeviceInSync(config.VXLANMTU, iptablesFeatures.ChecksumOffloadBroken, 10*time.Second)
 			dp.RegisterManager(vxlanManagerV6)
 		} else {
 			cleanUpVXLANDevice()

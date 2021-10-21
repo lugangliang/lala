@@ -1228,7 +1228,7 @@ func (c *L3RouteResolver) flushV4() {
 				rt.DstNodeIp = dstNodeInfo.IPv4Addr.String()
 			}
 		}
-		rt.SameSubnet = poolAllowsCrossSubnet && c.nodeInOurSubnet(rt.DstNodeName)
+		rt.SameSubnet = poolAllowsCrossSubnet && c.nodeIPv4InOurSubnet(rt.DstNodeName)
 
 		logrus.WithField("route", rt).Debug("Sending route")
 		c.callbacks.OnRouteUpdate(rt)
