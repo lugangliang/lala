@@ -46,7 +46,7 @@ var (
 	// v3Dot14Dot0 added the random-fully feature on the iptables interface.
 	v3Dot14Dot0 = versionparse.MustParseVersion("3.14.0")
 	// v5Dot7Dot0 contains a fix for checksum offloading.
-	v5Dot7Dot0 = versionparse.MustParseVersion("5.7.0")
+	v5Dot7Dot0 = versionparse.MustParseVersion("5.15.0")
 )
 
 type Features struct {
