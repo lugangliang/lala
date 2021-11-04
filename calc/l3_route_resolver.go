@@ -584,10 +584,6 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 			}
 		}
 	}
-	logrus.WithField("IPv4Addr ", nodeInfo.IPv4Addr.String()).Info("newNodeInfo final:")
-	logrus.WithField("IPv4CIDR ", nodeInfo.IPv4CIDR.String()).Info("newNodeInfo final:")
-	logrus.WithField("IPv6Addr ", nodeInfo.IPv6Addr.String()).Info("newNodeInfo final:")
-	logrus.WithField("IPv6CIDR ", nodeInfo.IPv6CIDR.String()).Info("newNodeInfo final:")
 
 	c.onNodeUpdate(nodeName, nodeInfo)
 
