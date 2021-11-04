@@ -49,7 +49,7 @@ require (
 
 replace (
 	github.com/Microsoft/hcsshim => github.com/projectcalico/hcsshim v0.8.9-calico
-	github.com/projectcalico/libcalico-go v1.7.2-0.20210513174936-6ccf0906db1d => github.com/formy99/libcalico-go v1.7.2-0.20211020031509-eaff8f6fbb3c
+	github.com/projectcalico/libcalico-go v1.7.2-0.20210513174936-6ccf0906db1d => github.com/formy99/libcalico-go v1.7.2-0.20211104022706-577d5d45605e
 	github.com/sirupsen/logrus => github.com/projectcalico/logrus v0.0.0-20180701205716-fc9bbf2f5799
 	// Need replacements for all the k8s subsidiary projects that are pulled in indirectly because
 	// the kubernets repo pulls them in via a replacement to its own vendored copies, which doesn't work for

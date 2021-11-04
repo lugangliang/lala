@@ -544,6 +544,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				isIPv4 = true
 				logrus.WithField("node ipv6 address", ipv6).Info("newNodeInfo ")
 				logrus.WithField("node ipv6 cidr", caliNodeCIDR).Info("newNodeInfo ")
+				logrus.WithField("node ipv4 address", ipv4).Info("newNodeInfo ")
+				logrus.WithField("node ipv4 cidr", caliNodeIPv4CIDR).Info("newNodeInfo ")
 				nodeInfo = &l3rrNodeInfo{
 					IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
 					IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
