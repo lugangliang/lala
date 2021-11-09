@@ -236,7 +236,10 @@ func StartNNodeTopology(n int, opts TopologyOptions, infra DatastoreInfra) (feli
 		}
 		if opts.VXLANMode != api.VXLANModeNever {
 			infra.SetExpectedVXLANTunnelAddr(felix, i, bool(n > 1))
-			expectedIPs = append(expectedIPs, felix.ExpectedVXLANTunnelAddr)
+			expectedIPs = append(expectedIPs, felix.ExpectedVXLANTunnelIPv4Addr)
+			if opts.EnableIPv6 != true {
+				expectedIPs = append(expectedIPs, felix.ExpectedVXLANTunnelIPv6Addr)
+			}
 		}
 		if opts.WireguardEnabled {
 			infra.SetExpectedWireguardTunnelAddr(felix, i, bool(n > 1))
