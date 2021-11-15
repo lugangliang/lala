@@ -612,15 +612,21 @@ func (c *L3RouteResolver) OnHostIPUpdate(update api.Update) (_ bool) {
 		v6Addr, ok := ip.FromCalicoIP(*newCaliIP).(ip.V6Addr)
 		if ok { // Defensive; we only expect an IPv4.
 			isIPv6 = true
+			v4Addr := c.nodeNameToNodeInfo[nodeName].IPv4Addr
 			newNodeInfo = &l3rrNodeInfo{
 				IPv6Addr: v6Addr,
 				IPv6CIDR: v6Addr.AsCIDR().(ip.V6CIDR), // Don't know the CIDR so use the /32.
+				IPv4Addr: v4Addr,
+				IPv4CIDR: v4Addr.AsCIDR().(ip.V4CIDR),
 			}
 		}
 		v4Addr, ok := ip.FromCalicoIP(*newCaliIP).(ip.V4Addr)
 		if ok { // Defensive; we only expect an IPv4.
 			isIPv4 = true
+			v6Addr = c.nodeNameToNodeInfo[nodeName].IPv6Addr
 			newNodeInfo = &l3rrNodeInfo{
+				IPv6Addr: v6Addr,
+				IPv6CIDR: v6Addr.AsCIDR().(ip.V6CIDR),
 				IPv4Addr: v4Addr,
 				IPv4CIDR: v4Addr.AsCIDR().(ip.V4CIDR), // Don't know the CIDR so use the /32.
 			}
