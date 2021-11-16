@@ -188,7 +188,7 @@ func NewL3RouteResolver(hostname string, callbacks PipelineCallbacks, useNodeRes
 		useNodeResourceUpdates: useNodeResourceUpdates,
 		routeSource:            routeSource,
 		nodeRoutes:             newNodeRoutes(),
-		nodeIPv4Routes: 		newNodeIPv4Routes(),
+		nodeIPv4Routes:         newNodeIPv4Routes(),
 	}
 }
 
@@ -760,18 +760,18 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 	}
 	if newNodeInfo != nil {
 		c.nodeNameToNodeInfo[nodeName] = *newNodeInfo
-		for _, a := range newNodeInfo.AddresesV6AsCIDRs() {
-			c.trie.AddHost(a, nodeName)
+		if len(newNodeInfo.AddresesV6AsCIDRs()) != 0 {
+			for _, a := range newNodeInfo.AddresesV6AsCIDRs() {
+				c.trie.AddHost(a, nodeName)
+			}
+			c.markAllNodeRoutesDirty(nodeName)
 		}
-		for _, a := range newNodeInfo.AddresesV4AsCIDRs() {
-			c.trieV4.AddHost(a, nodeName)
+		if len(newNodeInfo.AddresesV4AsCIDRs()) != 0 {
+			for _, a := range newNodeInfo.AddresesV4AsCIDRs() {
+				c.trieV4.AddHost(a, nodeName)
+			}
+			c.markAllNodeIPv4RoutesDirty(nodeName)
 		}
-	}
-	if myNewIPv4CIDRKnown {
-		c.markAllNodeIPv4RoutesDirty(nodeName)
-	}
-	if myNewIPv6CIDRKnown {
-		c.markAllNodeRoutesDirty(nodeName)
 	}
 
 }
@@ -1115,7 +1115,6 @@ func (c *L3RouteResolver) flushV4() {
 		logCxt := logrus.WithField("cidr", item)
 		logCxt.Debug("Flushing dirty route")
 		cidr := item.(ip.V4CIDR)
-
 		// We know the CIDR may be dirty, look up the path through the trie to the CIDR.  This will
 		// give us the information about the enclosing CIDRs.  For example, if we have:
 		// - IP pool     10.0.0.0/16 VXLAN
