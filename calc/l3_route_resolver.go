@@ -508,8 +508,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				logrus.WithError(err).Panic("Failed to parse already-validated IP address")
 			}
 			isIPv6 = true
-			logrus.WithField("node bgp ipv6 address", ipv6).Info("newNodeInfo ")
-			logrus.WithField("node bgp ipv6 cidr", caliNodeCIDR).Info("newNodeInfo ")
+			logrus.WithField("node bgp ipv6 address", ipv6).Debug("newNodeInfo ")
+			logrus.WithField("node bgp ipv6 cidr", caliNodeCIDR).Debug("newNodeInfo ")
 
 			// Use cnet.ParseCIDROrIP so we get the IP and the CIDR.  The parse functions in the ip package
 			// throw away one or the other.
@@ -518,8 +518,8 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				logrus.WithError(err).Panic("Failed to parse already-validated IP address")
 			}
 			isIPv4 = true
-			logrus.WithField("node bgp ipv4 address", ipv4).Info("newNodeInfo ")
-			logrus.WithField("node bgp ipv4 cidp", caliNodeIPv4CIDR).Info("newNodeInfo ")
+			logrus.WithField("node bgp ipv4 address", ipv4).Debug("newNodeInfo ")
+			logrus.WithField("node bgp ipv4 cidp", caliNodeIPv4CIDR).Debug("newNodeInfo ")
 
 			nodeInfo = &l3rrNodeInfo{
 				IPv6Addr: ip.FromCalicoIP(*ipv6).(ip.V6Addr),
@@ -566,12 +566,12 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 
 			if node.Spec.IPv4VXLANTunnelAddr != "" {
 				nodeInfo.VXLANIPv4Addr = ip.FromString(node.Spec.IPv4VXLANTunnelAddr)
-				logrus.WithField("IPv4VXLANTunnelAddr ", nodeInfo.VXLANIPv4Addr).Info("newNodeInfo :")
+				logrus.WithField("IPv4VXLANTunnelAddr ", nodeInfo.VXLANIPv4Addr).Debug("newNodeInfo :")
 			}
 
 			if node.Spec.IPv6VXLANTunnelAddr != "" {
 				nodeInfo.VXLANAddr = ip.FromString(node.Spec.IPv6VXLANTunnelAddr)
-				logrus.WithField("IPv6VXLANTunnelAddr ", nodeInfo.VXLANAddr).Info("newNodeInfo :")
+				logrus.WithField("IPv6VXLANTunnelAddr ", nodeInfo.VXLANAddr).Debug("newNodeInfo :")
 			}
 
 			for _, a := range node.Spec.Addresses {
