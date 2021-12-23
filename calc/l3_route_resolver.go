@@ -16,8 +16,10 @@ package calc
 
 import (
 	"fmt"
+	"os"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 
@@ -84,6 +86,11 @@ type l3rrNodeInfo struct {
 	VXLANAddr     ip.Addr
 	WireguardAddr ip.Addr
 
+    // add for router manage
+	nodeDomainLabel string
+	nodeRegionLabel string
+	nodeCenterLabel string
+
 	Addresses []ip.Addr
 }
 
@@ -93,7 +100,10 @@ func (i l3rrNodeInfo) Equal(b l3rrNodeInfo) bool {
 		i.IPIPAddr == b.IPIPAddr &&
 		i.VXLANAddr == b.VXLANAddr &&
 		i.VXLANIPv4Addr == b.VXLANIPv4Addr &&
-		i.WireguardAddr == b.WireguardAddr {
+		i.WireguardAddr == b.WireguardAddr &&
+		i.nodeRegionLabel == b.nodeRegionLabel &&
+		i.nodeDomainLabel == b.nodeDomainLabel &&
+		i.nodeCenterLabel == b.nodeCenterLabel{
 
 		if len(i.Addresses) != len(b.Addresses) {
 			return false
@@ -469,6 +479,21 @@ func (c *L3RouteResolver) OnBlockUpdate(update api.Update) (_ bool) {
 
 func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 	var isIPv4, isIPv6 bool
+
+    // get label name from env.
+	domainLabelName := os.Getenv("DOMAIN_LABEL_NAME")
+	if domainLabelName == ""{
+		domainLabelName = "routedomain"
+	}
+	regionLabelName := os.Getenv("REGION_LABEL_NAME")
+	if regionLabelName == ""{
+		regionLabelName = "topology.kubernetes.io/region"
+	}
+	centerLabelName := os.Getenv("CENTER_LABEL_NAME")
+	if centerLabelName == ""{
+		centerLabelName = "ly-center"
+	}
+
 	// We only care about nodes, not other resources.
 	resourceKey := update.Key.(model.ResourceKey)
 	if resourceKey.Kind != apiv3.KindNode {
@@ -526,6 +551,9 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 				IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
 				IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
 				IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeIPv4CIDR).(ip.V4CIDR),
+				nodeDomainLabel: node.Labels[domainLabelName],
+				nodeRegionLabel: node.Labels[regionLabelName],
+				nodeCenterLabel: node.Labels[centerLabelName],
 			}
 
 		} else {
@@ -551,6 +579,9 @@ func (c *L3RouteResolver) OnResourceUpdate(update api.Update) (_ bool) {
 					IPv6CIDR: ip.CIDRFromCalicoNet(*caliNodeCIDR).(ip.V6CIDR),
 					IPv4Addr: ip.FromCalicoIP(*ipv4).(ip.V4Addr),
 					IPv4CIDR: ip.CIDRFromCalicoNet(*caliNodeIPv4CIDR).(ip.V4CIDR),
+					nodeDomainLabel: node.Labels[domainLabelName],
+					nodeRegionLabel: node.Labels[regionLabelName],
+					nodeCenterLabel: node.Labels[centerLabelName],
 				}
 			}
 		}
@@ -655,14 +686,21 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 
 		var myNewIPv4CIDR ip.V4CIDR
 
+		var labelChanged bool
+
 		if newNodeInfo != nil {
+			// record label changes , include region or domain.
+			labelChanged = oldNodeInfo.nodeRegionLabel != newNodeInfo.nodeRegionLabel ||
+				oldNodeInfo.nodeDomainLabel != newNodeInfo.nodeDomainLabel ||
+				oldNodeInfo.nodeCenterLabel != newNodeInfo.nodeCenterLabel
 			if newNodeInfo.IPv6CIDR.String() != "" {
 				logrus.WithField("String", newNodeInfo.IPv6CIDR.String()).Info("newNodeInfo.IPv6CIDR")
 				myNewIPv6CIDR = newNodeInfo.IPv6CIDR
 				myNewIPv6CIDRKnown = true
 				logrus.WithField("String", oldNodeInfo.IPv6CIDR.String()).Info("oldNodeInfo.IPv6CIDR")
 
-				if oldNodeInfo.IPv6CIDR != myNewIPv6CIDR {
+				// if label changes, also check route
+				if oldNodeInfo.IPv6CIDR != myNewIPv6CIDR || labelChanged {
 					logrus.Info("visitAllRoutes execute start")
 					// This node's CIDR has changed; some routes may now have an incorrect value for same-subnet.
 					c.visitAllRoutes(func(r nodenameIPv6Route) {
@@ -676,7 +714,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 						otherNodesIPv6 := otherNodeInfo.IPv6Addr
 						wasSameSubnet := nodeExisted && oldNodeInfo.IPv6CIDR.Contains(otherNodesIPv6)
 						nowSameSubnet := myNewIPv6CIDRKnown && myNewIPv6CIDR.Contains(otherNodesIPv6)
-						if wasSameSubnet != nowSameSubnet {
+						if wasSameSubnet != nowSameSubnet || labelChanged{
 							logrus.WithField("route", r).Debug("Update to our subnet invalidated route")
 							c.trie.MarkCIDRDirty(r.dst)
 						}
@@ -691,7 +729,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 				myNewIPv4CIDRKnown = true
 				logrus.WithField("String", oldNodeInfo.IPv4CIDR.String()).Info("oldNodeInfo.IPv4CIDR")
 
-				if oldNodeInfo.IPv4CIDR != myNewIPv4CIDR {
+				if oldNodeInfo.IPv4CIDR != myNewIPv4CIDR || labelChanged{
 					logrus.Info("visitAllIPv4Routes execute start")
 					// This node's CIDR has changed; some routes may now have an incorrect value for same-subnet.
 					c.visitAllIPv4Routes(func(r nodenameIPv4Route) {
@@ -705,7 +743,7 @@ func (c *L3RouteResolver) onNodeUpdate(nodeName string, newNodeInfo *l3rrNodeInf
 						otherNodesIPv4 := otherNodeInfo.IPv4Addr
 						wasSameSubnet := nodeExisted && oldNodeInfo.IPv4CIDR.Contains(otherNodesIPv4)
 						nowSameSubnet := myNewIPv4CIDRKnown && myNewIPv4CIDR.Contains(otherNodesIPv4)
-						if wasSameSubnet != nowSameSubnet {
+						if wasSameSubnet != nowSameSubnet || labelChanged{
 							logrus.WithField("route", r).Debug("Update to our subnet invalidated route")
 							c.trieV4.MarkCIDRDirty(r.dst)
 						}
@@ -1095,18 +1133,71 @@ func (c *L3RouteResolver) flush() {
 
 		if rt.DstNodeName != "" {
 			dstNodeInfo, exists := c.nodeNameToNodeInfo[rt.DstNodeName]
+			myNodeInfo, ok := c.nodeNameToNodeInfo[c.myNodeName]
+			if exists && ok{
+				if c.processRouteFilter(myNodeInfo, dstNodeInfo) == false {
+			        c.callbacks.OnRouteRemove(rt.Dst)
+			        c.trie.SetRouteSent(cidr, true)
+					logrus.WithField("route", rt).Info("Sending route delete.")
+					return set.RemoveItem
+                }
+			}
+
 			if exists {
 				rt.DstNodeIp = dstNodeInfo.IPv6Addr.String()
 			}
 		}
 		rt.SameSubnet = poolAllowsCrossSubnet && c.nodeInOurSubnet(rt.DstNodeName)
 
-		logrus.WithField("route", rt).Debug("Sending route")
+		logrus.WithField("route", rt).Info("Sending route update")
 		c.callbacks.OnRouteUpdate(rt)
 		c.trie.SetRouteSent(cidr, true)
 
 		return set.RemoveItem
 	})
+}
+
+func (c *L3RouteResolver) processRouteFilter(myNodeInfo l3rrNodeInfo, dstNodeInfo l3rrNodeInfo) (keepRoute bool) {
+	keepRoute = false
+	// save effictive labels after process labels about region and domain.
+	destNodeEffictiveLabelSet := set.New()
+	myNodeEffictiveLabelSet := set.New()
+
+	if dstNodeInfo.nodeRegionLabel != "" {
+		destNodeEffictiveLabelSet.Add(strings.Split(dstNodeInfo.nodeRegionLabel, "-")[0])
+	}
+	if dstNodeInfo.nodeDomainLabel != "" {
+		destNodeEffictiveLabelSet.AddAll(strings.Split(dstNodeInfo.nodeDomainLabel, "_"))
+	}
+	if dstNodeInfo.nodeCenterLabel != "" {
+		destNodeEffictiveLabelSet.Add(dstNodeInfo.nodeCenterLabel)
+	}
+
+	if myNodeInfo.nodeRegionLabel != "" {
+		myNodeEffictiveLabelSet.Add(strings.Split(myNodeInfo.nodeRegionLabel, "-")[0])
+	}
+	if myNodeInfo.nodeDomainLabel != "" {
+		myNodeEffictiveLabelSet.AddAll(strings.Split(myNodeInfo.nodeDomainLabel, "_"))
+	}
+	if myNodeInfo.nodeCenterLabel != "" {
+		myNodeEffictiveLabelSet.Add(myNodeInfo.nodeCenterLabel)
+	}
+
+	// for safety keep route if node has no effictive lables
+	if destNodeEffictiveLabelSet.Len() == 0 || myNodeEffictiveLabelSet.Len() == 0{
+		keepRoute = true
+	}
+	destNodeEffictiveLabelSet.Iter(func(item interface{}) error{
+		if myNodeEffictiveLabelSet.Contains(item) {
+			keepRoute = true
+			return  set.StopIteration
+		}
+		return nil
+	})
+	destNodeEffictiveLabelSet.Clear()
+	myNodeEffictiveLabelSet.Clear()
+
+	return keepRoute
 }
 
 func (c *L3RouteResolver) flushV4() {
@@ -1227,13 +1318,22 @@ func (c *L3RouteResolver) flushV4() {
 
 		if rt.DstNodeName != "" {
 			dstNodeInfo, exists := c.nodeNameToNodeInfo[rt.DstNodeName]
+			myNodeInfo, ok := c.nodeNameToNodeInfo[c.myNodeName]
+			if exists && ok{
+				if c.processRouteFilter(myNodeInfo, dstNodeInfo) == false {
+					c.callbacks.OnRouteRemove(rt.Dst)
+					c.trieV4.SetRouteSent(cidr, true)
+					logrus.WithField("route", rt).Info("Sending route delete.")
+					return set.RemoveItem
+				}
+			}
 			if exists {
 				rt.DstNodeIp = dstNodeInfo.IPv4Addr.String()
 			}
 		}
 		rt.SameSubnet = poolAllowsCrossSubnet && c.nodeIPv4InOurSubnet(rt.DstNodeName)
 
-		logrus.WithField("route", rt).Debug("Sending route")
+		logrus.WithField("route", rt).Info("Sending route update.")
 		c.callbacks.OnRouteUpdate(rt)
 		c.trieV4.SetRouteSent(cidr, true)
 
